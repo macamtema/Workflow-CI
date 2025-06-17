@@ -35,25 +35,18 @@ jobs:
         run: |
           mlflow run . --env-manager=local -P epochs=5
 
-      - name: Get latest MLflow run ID
+      - name: Get MLflow run ID via Python
         id: get_run_id
+        working-directory: MLProject
         run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
+          RUN_ID=$(python -c "import mlflow; client = mlflow.MlflowClient(); run = client.search_runs(experiment_ids=['0'], order_by=['start_time DESC'], max_results=1)[0]; print(run.info.run_id)")
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "Latest Run ID: $RUN_ID"
 
-      - name: Check model path (debug)
-        run: |
-          echo "Checking model artifacts in mlruns/0/$RUN_ID/artifacts/"
-          if [ -d "mlruns/0/$RUN_ID/artifacts" ]; then
-            ls -R "mlruns/0/$RUN_ID/artifacts"
-          else
-            echo "⚠️ Directory not found: mlruns/0/$RUN_ID/artifacts"
-            exit 1
-          fi
-
       - name: Build Docker Image
         run: |
+          echo "Checking model artifacts in mlruns/0/$RUN_ID/artifacts/"
+          ls -R mlruns/0/$RUN_ID/artifacts || echo "Artifacts not found!"
           mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model.keras" -n macamtema/smsml_tema
 
       - name: Log in to Docker Hub
