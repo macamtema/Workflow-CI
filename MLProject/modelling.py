@@ -8,9 +8,9 @@ import numpy as np
 import tempfile
 import os
 
-mlflow.autolog(disable=True)  # Disable autolog to avoid API incompatibilities
+mlflow.autolog(disable=True)  # Nonaktifkan autolog MLflow untuk menghindari konflik API
 
-# Load and preprocess data
+# Load dan praproses data
 iris = load_iris()
 X = iris.data
 y = iris.target
@@ -20,7 +20,7 @@ X_scaled = scaler.fit_transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-# Build model
+# Membangun model
 def build_model(input_shape, num_classes):
     model = keras.Sequential([
         keras.layers.Input(shape=(input_shape,)),
@@ -38,16 +38,13 @@ model = build_model(X_train.shape[1], len(np.unique(y)))
 with mlflow.start_run() as run:
     model.fit(X_train, y_train, epochs=5, validation_data=(X_test, y_test), verbose=2)
 
-    # Save model locally
+    # Simpan model secara lokal
     temp_dir = tempfile.mkdtemp()
     model_path = os.path.join(temp_dir, "model.keras")
     model.save(model_path)
 
-    # Log manually
+    # Log model ke MLflow (disimpan sebagai artefak)
     mlflow.log_artifacts(temp_dir, artifact_path="model")
 
-    # Register manually
-    model_uri = f"runs:/{run.info.run_id}/model"
-    result = mlflow.register_model(model_uri=model_uri, name="smsml_model")
-
-    print(f"✅ Model registered as 'smsml_model', version {result.version}")
+    print(f"✅ Model berhasil disimpan sebagai artefak di run ID: {run.info.run_id}")
+    print("ℹ️ Untuk mengunduh model, lihat artefak di UI Dagshub atau gunakan MLflow API.")
