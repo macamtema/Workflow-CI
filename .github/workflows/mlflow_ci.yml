@@ -30,19 +30,22 @@ jobs:
           pip install --upgrade pip
           pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
 
-      - name: Run MLflow project
+      - name: Run MLflow project and capture RUN_ID
+        id: run_training
         working-directory: MLProject
         run: |
-          mlflow run . --env-manager=local -P epochs=5
+          mlflow run . --env-manager=local -P epochs=5 | tee output.log
+          RUN_ID=$(grep -oP "(?<=Run \(ID ')[^']+" output.log | tail -1)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
-      - name: Get latest MLflow run_id
-        id: get_run_id
-        run: |
-          echo "RUN_ID=$(mlflow experiments list | tail -1 | awk '{print $1}')" >> $GITHUB_ENV
+      - name: List artifacts for debugging (optional)
+        run: ls -R mlruns/
 
       - name: Build Docker Image
         run: |
-          mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model" -n macamtema/smsml_tema
+          echo "Using RUN_ID=$RUN_ID"
+          mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model.keras" -n macamtema/smsml_tema
 
       - name: Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
