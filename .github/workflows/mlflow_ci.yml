@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      MLFLOW_TRACKING_URI: https://dagshub.com/YOUR_USERNAME/YOUR_REPO.mlflow
+      MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
       MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -42,10 +42,10 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          mlflow models build-docker -m "mlruns/0/${{ env.RUN_ID }}/artifacts/model" -n macamtema/smsml_tema
+          mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model" -n macamtema/smsml_tema
 
       - name: Log in to Docker Hub
-        run: echo "${{ env.DOCKERHUB_TOKEN }}" | docker login -u "${{ env.DOCKERHUB_USERNAME }}" --password-stdin
+        run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
       - name: Tag and Push Docker Image
         run: |
