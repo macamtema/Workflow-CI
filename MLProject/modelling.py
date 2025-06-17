@@ -1,26 +1,31 @@
+import argparse
 import mlflow
-import tensorflow as tf
-import numpy as np
-import os
+import mlflow.tensorflow
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
 
-# Dummy data (ganti dengan data real kalau sudah clone dataset)
-x_train = np.random.rand(100, 32, 32, 3)
-y_train = tf.keras.utils.to_categorical(np.random.randint(3, size=(100,)), num_classes=3)
+# Parse CLI args
+parser = argparse.ArgumentParser()
+parser.add_argument("--epochs", type=int, default=5)
+args = parser.parse_args()
 
-x_val = np.random.rand(20, 32, 32, 3)
-y_val = tf.keras.utils.to_categorical(np.random.randint(3, size=(20,)), num_classes=3)
-
-model = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(32, 32, 3)),
-    tf.keras.layers.MaxPooling2D(2, 2),
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.Dense(3, activation='softmax')
-])
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+mlflow.tensorflow.autolog()
 
 with mlflow.start_run():
-    history = model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=3)
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    x_train, x_test = x_train / 255.0, x_test / 255.0
+    y_train_cat = to_categorical(y_train, 10)
+    y_test_cat = to_categorical(y_test, 10)
 
-    mlflow.log_metric("val_accuracy", history.history["val_accuracy"][-1])
+    model = Sequential([
+        Flatten(input_shape=(28, 28)),
+        Dense(128, activation='relu'),
+        Dense(10, activation='softmax')
+    ])
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit(x_train, y_train_cat, validation_data=(x_test, y_test_cat), epochs=args.epochs)
+
     mlflow.keras.log_model(model, "model")
