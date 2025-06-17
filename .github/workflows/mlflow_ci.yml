@@ -17,39 +17,39 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      - name: Install dependencies
+      - name: 📦 Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
 
-      - name: Run MLflow project
+      - name: 🚀 Run MLflow project
         working-directory: MLProject
         run: |
           mlflow run . --env-manager=local -P epochs=5
 
-      - name: Get latest model version from Model Registry
+      - name: 📡 Get latest model version from MLflow Registry
         id: get_model_version
         run: |
           MODEL_VERSION=$(python -c "import mlflow; client = mlflow.MlflowClient(); v = client.get_latest_versions('smsml_model')[0]; print(v.version)")
           echo "MODEL_VERSION=$MODEL_VERSION" >> $GITHUB_ENV
           echo "📦 Latest model version: $MODEL_VERSION"
 
-      - name: Build Docker Image from Registered Model
+      - name: 🐳 Build Docker Image from Registered Model
         run: |
           mlflow models build-docker -m "models:/smsml_model/$MODEL_VERSION" -n macamtema/smsml_tema
 
-      - name: Log in to Docker Hub
+      - name: 🔐 Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-      - name: Tag and Push Docker Image
+      - name: 📤 Push Docker Image to Docker Hub
         run: |
           docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
           docker push macamtema/smsml_tema:latest
