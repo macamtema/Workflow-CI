@@ -30,25 +30,31 @@ jobs:
           pip install --upgrade pip
           pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
 
-      - name: Run MLflow project and capture RUN_ID
-        id: run_training
+      - name: Run MLflow project
         working-directory: MLProject
         run: |
-          # Run and extract RUN_ID
-          RUN_OUTPUT=$(mlflow run . --env-manager=local -P epochs=5)
-          echo "$RUN_OUTPUT"
-          RUN_ID=$(echo "$RUN_OUTPUT" | grep -oP "(?<=Run \(ID ')[^']+")
-          echo "Captured RUN_ID=$RUN_ID"
-          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          mlflow run . --env-manager=local -P epochs=5
 
-      - name: Debug RUN_ID
-        run: echo "Final RUN_ID=${{ env.RUN_ID }}"
+      - name: Get latest MLflow run ID
+        id: get_run_id
+        run: |
+          RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Latest Run ID: $RUN_ID"
+
+      - name: Check model path (debug)
+        run: |
+          echo "Checking model artifacts in mlruns/0/$RUN_ID/artifacts/"
+          if [ -d "mlruns/0/$RUN_ID/artifacts" ]; then
+            ls -R "mlruns/0/$RUN_ID/artifacts"
+          else
+            echo "⚠️ Directory not found: mlruns/0/$RUN_ID/artifacts"
+            exit 1
+          fi
 
       - name: Build Docker Image
         run: |
-          echo "Building Docker image from run_id=${{ env.RUN_ID }}"
-          mlflow models build-docker -m "mlruns/0/${{ env.RUN_ID }}/artifacts/model.keras" -n macamtema/smsml_tema
+          mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model.keras" -n macamtema/smsml_tema
 
       - name: Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
