@@ -39,9 +39,6 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
-      - name: List artifacts for debugging (optional)
-        run: ls -R mlruns/
-
       - name: Build Docker Image
         run: |
           echo "Using RUN_ID=$RUN_ID"
