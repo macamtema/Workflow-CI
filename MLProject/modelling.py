@@ -34,5 +34,5 @@ with mlflow.start_run():
     mlflow.log_metric("final_accuracy", history.history["val_accuracy"][-1])
 
     # Save and log model directory as artifact
-    model.save("model")  # Simpan model lokal
-    mlflow.log_artifacts("model")  # Upload folder ke DAGsHub/MLflow
+    model.save("model.keras")              # Simpan ke format Keras terbaru
+    mlflow.log_artifact("model.keras")     # Upload ke MLflow (DagsHub)
