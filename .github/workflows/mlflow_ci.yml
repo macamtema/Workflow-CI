@@ -1,59 +1,43 @@
-name: MLflow CI Pipeline
+name: 🚀 Train and Deploy Model
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   train-and-deploy:
     runs-on: ubuntu-latest
 
     env:
-      MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
-      MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 🔽 Checkout code
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      - name: 📦 Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
-
-      - name: 🚀 Train and log model
+      - name: 📦 Install dependencies
         working-directory: MLProject
         run: |
-          mlflow run . --env-manager=local -P epochs=5
+          pip install -r <(echo "mlflow\ntensorflow\nscikit-learn")
 
-      - name: 📡 Get latest run ID
-        id: get_run_id
+      - name: 🧪 Train & log model
+        working-directory: MLProject
         run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
-          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "🔍 Run ID: $RUN_ID"
+          mlflow run . --env-manager=local
 
-      - name: 📦 Download model artifact from MLflow run
+      - name: 🐳 Build Docker image
+        working-directory: MLProject
         run: |
-          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+          docker build -t macamtema/smsml_tema:latest .
 
-      - name: 🐳 Build Docker Image from Downloaded Model
-        run: |
-          mlflow models build-docker -m ./downloaded_model -n macamtema/smsml_tema
-
-      - name: 🔐 Log in to Docker Hub
+      - name: 🔐 Login Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-      - name: 📤 Push Docker Image to Docker Hub
-        run: |
-          docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
-          docker push macamtema/smsml_tema:latest
+      - name: 🚀 Push Docker image
+        run: docker push macamtema/smsml_tema:latest

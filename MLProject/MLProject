@@ -1,10 +1,10 @@
-name: rice-classifier
+# MLProject/MLproject
 
-conda_env: conda.yaml
+name: smsml
 
 entry_points:
   main:
     parameters:
       epochs: { type: int, default: 5 }
     command: >
-      python modelling.py --epochs {epochs}
+      python mlflow_train.py
