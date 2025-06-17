@@ -1,0 +1,55 @@
+name: MLflow CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Check Environment
+        run: |
+          python --version
+          pip --version
+
+      - name: Install Dependencies
+        working-directory: MLProject
+        run: |
+          pip install mlflow tensorflow dagshub pandas numpy
+
+      - name: Run MLflow Project
+        working-directory: MLProject
+        run: mlflow run . --env-manager=local
+
+      - name: Get Latest Run ID
+        id: get_run_id
+        run: |
+          RUN_ID=$(mlflow experiments list | grep 'Default' | awk '{print $1}' | xargs -I {} mlflow runs list -e {} --order-by start_time | head -1 | awk '{print $1}')
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+      - name: Build Docker Model
+        run: |
+          mlflow models build-docker -m "mlruns/0/${{ steps.get_run_id.outputs.run_id }}/artifacts/model" -n rice-model
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker Image
+        run: docker tag rice-model ${{ secrets.DOCKERHUB_USERNAME }}/rice-model:latest
+
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/rice-model:latest

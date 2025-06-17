@@ -1,0 +1,12 @@
+name: rice_env
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - mlflow
+      - tensorflow
+      - pandas
+      - numpy
+      - dagshub
