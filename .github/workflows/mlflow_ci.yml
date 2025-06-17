@@ -34,15 +34,21 @@ jobs:
         id: run_training
         working-directory: MLProject
         run: |
-          mlflow run . --env-manager=local -P epochs=5 | tee output.log
-          RUN_ID=$(grep -oP "(?<=Run \(ID ')[^']+" output.log | tail -1)
+          # Run and extract RUN_ID
+          RUN_OUTPUT=$(mlflow run . --env-manager=local -P epochs=5)
+          echo "$RUN_OUTPUT"
+          RUN_ID=$(echo "$RUN_OUTPUT" | grep -oP "(?<=Run \(ID ')[^']+")
+          echo "Captured RUN_ID=$RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
+      - name: Debug RUN_ID
+        run: echo "Final RUN_ID=${{ env.RUN_ID }}"
+
       - name: Build Docker Image
         run: |
-          echo "Using RUN_ID=$RUN_ID"
-          mlflow models build-docker -m "mlruns/0/$RUN_ID/artifacts/model.keras" -n macamtema/smsml_tema
+          echo "Building Docker image from run_id=${{ env.RUN_ID }}"
+          mlflow models build-docker -m "mlruns/0/${{ env.RUN_ID }}/artifacts/model.keras" -n macamtema/smsml_tema
 
       - name: Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
