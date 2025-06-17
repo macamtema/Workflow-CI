@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=5)
 args = parser.parse_args()
 
-mlflow.tensorflow.autolog()
+# Jangan pakai autolog karena error dengan DAGsHub (optional)
+# mlflow.tensorflow.autolog()
 
 with mlflow.start_run():
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -26,6 +27,12 @@ with mlflow.start_run():
     ])
 
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    model.fit(x_train, y_train_cat, validation_data=(x_test, y_test_cat), epochs=args.epochs)
+    history = model.fit(x_train, y_train_cat, validation_data=(x_test, y_test_cat), epochs=args.epochs)
 
-    mlflow.keras.log_model(model, "model")
+    # Logging manual (karena autolog error)
+    mlflow.log_param("epochs", args.epochs)
+    mlflow.log_metric("final_accuracy", history.history["val_accuracy"][-1])
+
+    # Save and log model directory as artifact
+    model.save("model")  # Simpan model lokal
+    mlflow.log_artifacts("model")  # Upload folder ke DAGsHub/MLflow
