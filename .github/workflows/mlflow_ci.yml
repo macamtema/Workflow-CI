@@ -44,20 +44,16 @@ jobs:
         id: get_run_id
         shell: bash -l {0}
         run: |
-          # File run_id.txt dibuat oleh modelling.py di dalam folder MLProject
           RUN_ID_FILE="MLProject/run_id.txt"
-
           if [ ! -f "$RUN_ID_FILE" ]; then
             echo "❌ File run_id.txt not found!"
             exit 1
           fi
-
           RUN_ID=$(cat $RUN_ID_FILE)
           if [[ -z "$RUN_ID" ]]; then
             echo "❌ Failed to read run ID from file or file is empty!"
             exit 1
           fi
-
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
@@ -75,6 +71,9 @@ jobs:
           ls -R ./downloaded_model
 
       - name: 🐳 Build Docker Image from Model
+        # --- PERUBAHAN DI SINI ---
+        # Menambahkan 'shell: bash -l {0}' agar perintah 'mlflow' dikenali.
+        shell: bash -l {0}
         run: |
           mlflow models build-docker -m ./downloaded_model -n smsml-model --enable-mlserver
 
