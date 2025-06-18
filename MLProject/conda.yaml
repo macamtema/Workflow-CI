@@ -1,14 +1,10 @@
-name: rice-env
+name: dummy-env
 channels:
   - defaults
-  - conda-forge
 dependencies:
   - python=3.11
   - pip
   - pip:
-      - tensorflow
       - mlflow
-      - dagshub
-      - matplotlib
-      - seaborn
+      - tensorflow
       - scikit-learn

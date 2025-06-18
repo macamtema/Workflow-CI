@@ -1,43 +1,91 @@
-name: 🚀 Train and Deploy Model
+name: MLflow CI Pipeline
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   train-and-deploy:
     runs-on: ubuntu-latest
 
     env:
+      MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - name: 🔽 Checkout code
+      - name: 📥 Run actions/checkout@v3
         uses: actions/checkout@v3
 
-      - name: 🐍 Setup Python
+      - name: 🐍 Set up Python 3.12.7
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: 3.12.7
 
-      - name: 📦 Install dependencies
+      - name: ✅ Check Env
+        run: |
+          echo "Checking environment..."
+          python --version
+          pip --version
+
+      - name: 📦 Install dependencies (global tools)
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🚀 Run mlflow project
         working-directory: MLProject
         run: |
-          pip install -r <(echo "mlflow\ntensorflow\nscikit-learn")
+          mlflow run . --env-manager=conda -P epochs=5
 
-      - name: 🧪 Train & log model
-        working-directory: MLProject
+      - name: 📡 Get latest MLflow run_id
+        id: get_run_id
         run: |
-          mlflow run . --env-manager=local
+          RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "🆔 Latest Run ID: $RUN_ID"
 
-      - name: 🐳 Build Docker image
-        working-directory: MLProject
+      - name: 🧪 Install Python dependencies for model inference
         run: |
-          docker build -t macamtema/smsml_tema:latest .
+          pip install tensorflow scikit-learn numpy
 
-      - name: 🔐 Login Docker Hub
+      - name: ☁️ Upload model to Google Drive
+        run: |
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID --create-dirs
+
+      - name: 🐳 Build Docker Model from MLflow Artifact
+        run: |
+          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+          mlflow models build-docker -m ./downloaded_model -n macamtema/smsml_tema
+
+      - name: 🔐 Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-      - name: 🚀 Push Docker image
-        run: docker push macamtema/smsml_tema:latest
+      - name: 🏷️ Tag Docker Image
+        run: |
+          docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
+
+      - name: 📤 Push Docker Image to Docker Hub
+        run: |
+          docker push macamtema/smsml_tema:latest
+
+      - name: 🚪 Post Log in to Docker Hub
+        if: always()
+        run: docker logout
+
+      - name: 🧼 Post Set up Python 3.12.7
+        if: always()
+        run: echo "Finished Python setup"
+
+      - name: 🧽 Post Run actions/checkout@v3
+        if: always()
+        run: echo "Repository checkout done"
+
+      - name: ✅ Complete job
+        run: echo "🎉 MLflow CI pipeline complete!"
