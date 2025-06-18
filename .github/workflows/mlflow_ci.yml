@@ -19,25 +19,27 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python 3.12.7
-        uses: actions/setup-python@v5
+      - name: 📥 Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: 3.12.7
+          auto-update-conda: true
+          auto-activate-base: true
+          python-version: 3.10
 
-      - name: ⚙️ Check Env
+      - name: ⚙️ Install dependencies globally
         run: |
-          echo "Python version: $(python --version)"
-          pip install --upgrade pip
-          pip install mlflow
+          conda install pip
+          pip install --upgrade pip mlflow
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install Python dependencies for GitHub Actions (e.g., rclone)
         run: |
-          pip install -r MLProject/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y rclone zip
 
-      - name: 🏃 Run MLflow project
+      - name: 🏃 Run MLflow project using conda environment
         run: |
           cd MLProject
-          mlflow run . -P model_name=example_model
+          mlflow run . -P model_name=example_model -P epochs=5
 
       - name: 🆔 Get latest MLflow run_id
         id: get_run_id
