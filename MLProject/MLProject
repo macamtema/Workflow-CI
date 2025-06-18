@@ -1,7 +1,10 @@
-name: smsml-model
+name: smsml-tf
+
 conda_env: conda.yaml
+
 entry_points:
   main:
     parameters:
       epochs: { type: int, default: 5 }
-    command: "python modelling.py --epochs {epochs}"
+    command: >
+      python modelling.py --epochs {epochs}

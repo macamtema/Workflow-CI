@@ -4,14 +4,15 @@ import mlflow.tensorflow
 import tensorflow as tf
 import numpy as np
 from sklearn.model_selection import train_test_split
+import os
 
 # Argument parser untuk parameter eksternal
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=5)
 args = parser.parse_args()
 
-# Aktifkan autologging
-mlflow.tensorflow.autolog()
+# Nonaktifkan autolog karena tidak stabil di DagsHub
+mlflow.tensorflow.autolog(disable=True)
 
 # Buat data dummy: 1000 gambar 28x28 grayscale
 X = np.random.rand(1000, 28, 28, 1).astype(np.float32)
@@ -33,9 +34,13 @@ model.compile(optimizer='adam',
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
-# Mulai run MLflow secara eksplisit (jika autolog tidak cukup)
+# Jalankan training dalam MLflow run
 with mlflow.start_run() as run:
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=args.epochs)
-    mlflow.log_model(model, artifact_path="model", input_example=None, signature=None)
-    print("MLflow run ID:", run.info.run_id)
 
+    # Simpan model lokal, lalu log manual
+    model_dir = "saved_model"
+    mlflow.tensorflow.save_model(model, model_dir)
+    mlflow.log_artifacts(model_dir, artifact_path="model")
+
+    print("MLflow run ID:", run.info.run_id)
