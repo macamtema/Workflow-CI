@@ -1,29 +1,26 @@
 # Bagian 1: Base Image
-# Gunakan base image Python yang ringan dan efisien
-FROM python:3.9-slim
+# Kita mulai dari image miniconda yang sudah memiliki Conda terinstal
+FROM continuumio/miniconda3
 
-# Bagian 2: Setup Lingkungan
+# Bagian 2: Buat Lingkungan dari conda.yaml
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Nginx digunakan sebagai reverse proxy yang tangguh di depan server model
-    nginx \
-    && rm -rf /var/lib/apt/lists/*
 
-# Bagian 3: Instalasi Dependensi Model
-# Pertama, salin file requirements dari model yang sudah diunduh
-COPY downloaded_model/requirements.txt /app/requirements.txt
+# Salin file conda.yaml dari model yang sudah diunduh ke dalam image
+COPY downloaded_model/conda.yaml .
 
-# Kedua, instal dependensi tersebut menggunakan pip
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Gunakan Conda untuk membuat lingkungan persis seperti saat training
+# Semua dependensi (tensorflow, mlflow, dll.) akan terinstal di sini
+RUN conda env create -n model-env -f conda.yaml && conda clean -a
 
-# Bagian 4: Salin Artefak Model
-# Salin seluruh isi folder model yang sudah diunduh ke dalam image
+# Bagian 3: Salin Artefak Model
+# Salin seluruh folder model ke dalam image
 COPY downloaded_model/ /app/model/
 
-# Bagian 5: Konfigurasi & Eksekusi
+# Bagian 4: Konfigurasi & Eksekusi
 # Expose port yang akan digunakan oleh server
 EXPOSE 8080
 
-# Jalankan model server MLflow saat container dimulai
-# Perintah ini akan menyajikan model yang ada di direktori /app/model
-CMD ["mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080"]
+# Perintah default untuk menjalankan container
+# 1. Aktifkan lingkungan conda 'model-env' yang baru kita buat
+# 2. Jalankan mlflow models serve untuk menyajikan model
+CMD ["conda", "run", "-n", "model-env", "mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080"]
