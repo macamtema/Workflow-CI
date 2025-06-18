@@ -1,10 +1,15 @@
-name: MLProject
+# File konfigurasi MLflow Project
+# Mendefinisikan entry point dan lingkungan
 
+name: TF_CNN_Example
+
+# Menentukan bahwa lingkungan harus dibuat menggunakan file conda.yaml
 conda_env: conda.yaml
 
 entry_points:
   main:
+    # Mendefinisikan parameter yang bisa diterima dari command line
     parameters:
-      model_name: { type: str, default: example_model }
       epochs: { type: int, default: 5 }
+    # Perintah yang akan dieksekusi saat 'mlflow run' dipanggil
     command: "python modelling.py --epochs {epochs}"

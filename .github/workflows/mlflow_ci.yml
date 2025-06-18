@@ -1,59 +1,59 @@
-name: CI Workflow MLProject
-
+name: Workflow CI/CD Model ML
 on:
   push:
     branches: [main]
 
 jobs:
   build-and-deploy:
-    name: 🚀 Build and Deploy ML Model
+    name: 🚀 Build, Test, and Deploy ML Model
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
+      # Ganti dengan username DagsHub Anda di Secrets
       MLFLOW_TRACKING_URI: https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/smsml_tema.mlflow
       MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
 
     steps:
       - name: 📦 Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: 🐍 Setup Conda with environment
-        uses: conda-incubator/setup-miniconda@v2
+      - name: 🐍 Setup Conda with environment from file
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          # Arahkan ke file conda.yaml di dalam folder MLProject
           environment-file: MLProject/conda.yaml
-          activate-environment: mlflow-env
+          activate-environment: mlflow-tensorflow-env
           auto-activate-base: false
 
-      - name: 🔍 Check MLflow version
+      - name: 🔍 Verify MLflow version
         shell: bash -l {0}
         run: |
           which mlflow
           mlflow --version
 
-      - name: 🏃 Run MLflow project
-        id: run_mlflow
+      - name: 🏃 Run MLflow project to train model
         shell: bash -l {0}
         run: |
+          # Masuk ke direktori project sebelum menjalankan mlflow
           cd MLProject
-          mlflow run . -P epochs=5 -P model_name=example_model --experiment-id 0
+          # Jalankan MLProject dengan parameter epochs
+          mlflow run . --experiment-id 0 -P epochs=5
 
-      - name: 🆔 Get latest MLflow run_id
-        shell: bash -l {0}
+      - name: 🆔 Get latest MLflow run_id (Reliable Method)
         id: get_run_id
+        shell: bash -l {0}
         run: |
           echo "🔍 Searching for the latest run ID..."
-          # Tambahkan jeda 5 detik untuk memberi waktu server DagsHub mengindeks run yang baru selesai.
+          # Beri jeda 5 detik untuk memastikan run terindeks di server
           sleep 5
 
-          # Ambil RUN_ID dengan mengurutkan berdasarkan waktu mulai (paling baru dulu).
-          # Perintah ini jauh lebih andal daripada mengandalkan urutan default.
+          # Ambil RUN_ID dengan mengurutkan berdasarkan waktu mulai (paling baru dulu)
           RUN_ID=$(mlflow runs list --experiment-id 0 --order-by "start_time DESC" | awk 'NR==2 {print $1}')
 
           if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Run ID not found after sorting by start time!"
-            echo "--- Full list of runs for debugging ---"
+            echo "❌ Run ID not found! Please check DagsHub experiment."
             mlflow runs list --experiment-id 0 --order-by "start_time DESC"
             exit 1
           fi
@@ -61,44 +61,34 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "✅ Latest Run ID found: $RUN_ID"
 
-      - name: 📥 Download model artifact from MLflow run
+      - name: 📥 Download model artifact from MLflow
         shell: bash -l {0}
         run: |
-          MAX_RETRIES=5
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "🔁 Attempt $i to download artifacts for run $RUN_ID..."
-            mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model && break
-            echo "⚠️ Download failed, retrying in 10s..."
-            sleep 10
-          done
+          echo "Downloading artifact 'model' from run ID: $RUN_ID"
+          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
 
-          if [ ! -d "./downloaded_model" ]; then
-            echo "❌ Artifact download failed after $MAX_RETRIES attempts."
+          # Verifikasi bahwa direktori tidak kosong
+          if [ ! -d "./downloaded_model" ] || [ -z "$(ls -A ./downloaded_model)" ]; then
+            echo "❌ Artifact download failed or the directory is empty."
             exit 1
           fi
+          echo "✅ Artifacts downloaded successfully."
+          ls -R ./downloaded_model
 
-      - name: ☁️ Upload model to Google Drive via rclone
-        shell: bash -l {0}
-        env:
-          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      - name: 🐳 Build Docker Image from Model
         run: |
-          zip -r model_${RUN_ID}.zip downloaded_model
-          echo "$RCLONE_CONF" > rclone.conf
-          rclone --config=rclone.conf copy model_${RUN_ID}.zip gdrive:/mlflow-models/
-
-      - name: 🐳 Build Docker Image
-        shell: bash -l {0}
-        run: |
-          mlflow models build-docker -m ./downloaded_model -n smsmlmodel
+          mlflow models build-docker -m ./downloaded_model -n smsml-model --enable-mlserver
 
       - name: 🔐 Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 🏷️ Tag Docker Image
-        run: docker tag smsmlmodel ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
+      - name: 🚢 Push Docker Image to Docker Hub
+        run: |
+          docker tag smsml-model:latest ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
 
-      - name: 🚢 Push Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
-
-      - name: 🔓 Logout Docker Hub
+      - name: 🔓 Logout from Docker Hub
         run: docker logout
