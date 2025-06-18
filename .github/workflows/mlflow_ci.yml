@@ -59,12 +59,16 @@ jobs:
         run: |
           pip install tensorflow scikit-learn numpy
 
-      - name: ☁️ Upload model to Google Drive
+      - name: Install rclone & write config
         shell: bash -l {0}
         run: |
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          echo "${{ secrets.RCLONE_CONF_B64 }}" | base64 -d > ~/.config/rclone/rclone.conf
+
+      - name: Upload model to GDrive
+        shell: bash -l {0}
+        run: |
           rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_${{ github.run_id }}
 
       - name: 🐳 Build Docker Model from MLflow Artifact
