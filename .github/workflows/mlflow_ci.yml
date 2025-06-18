@@ -39,7 +39,7 @@ jobs:
       - name: 🚀 Run mlflow project
         working-directory: MLProject
         run: |
-          mlflow run . --env-manager=conda -P epochs=5
+          python -m mlflow run . --env-manager=conda -P epochs=5
 
       - name: 📡 Get latest MLflow run_id
         id: get_run_id
