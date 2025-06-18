@@ -10,7 +10,6 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Ganti dengan username DagsHub Anda di Secrets
       MLFLOW_TRACKING_URI: https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/smsml_tema.mlflow
       MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
@@ -22,44 +21,45 @@ jobs:
       - name: 🐍 Setup Conda with environment from file
         uses: conda-incubator/setup-miniconda@v3
         with:
-          # Arahkan ke file conda.yaml di dalam folder MLProject
           environment-file: MLProject/conda.yaml
           activate-environment: mlflow-tensorflow-env
           auto-activate-base: false
 
-      - name: 🔍 Verify MLflow version
+      - name: 🔬 Verify Conda Environment & MLflow Version
         shell: bash -l {0}
         run: |
+          echo "--- Verifying Conda Environment ---"
+          conda info --envs
+          echo "--- Verifying MLflow Version ---"
           which mlflow
           mlflow --version
 
       - name: 🏃 Run MLflow project to train model
         shell: bash -l {0}
         run: |
-          # Masuk ke direktori project sebelum menjalankan mlflow
           cd MLProject
-          # Jalankan MLProject dengan parameter epochs
           mlflow run . --experiment-id 0 -P epochs=5
 
-      - name: 🆔 Get latest MLflow run_id (Reliable Method)
+      - name: 🆔 Get MLflow run_id from file (Definitive Method)
         id: get_run_id
         shell: bash -l {0}
         run: |
-          echo "🔍 Searching for the latest run ID..."
-          # Beri jeda 5 detik untuk memastikan run terindeks di server
-          sleep 5
+          # File run_id.txt dibuat oleh modelling.py di dalam folder MLProject
+          RUN_ID_FILE="MLProject/run_id.txt"
 
-          # Ambil RUN_ID dengan mengurutkan berdasarkan waktu mulai (paling baru dulu)
-          RUN_ID=$(mlflow runs list --experiment-id 0 --order-by "start_time DESC" | awk 'NR==2 {print $1}')
-
-          if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Run ID not found! Please check DagsHub experiment."
-            mlflow runs list --experiment-id 0 --order-by "start_time DESC"
+          if [ ! -f "$RUN_ID_FILE" ]; then
+            echo "❌ File run_id.txt not found!"
             exit 1
           fi
 
+          RUN_ID=$(cat $RUN_ID_FILE)
+          if [[ -z "$RUN_ID" ]]; then
+            echo "❌ Failed to read run ID from file or file is empty!"
+            exit 1
+          fi
+
+          echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "✅ Latest Run ID found: $RUN_ID"
 
       - name: 📥 Download model artifact from MLflow
         shell: bash -l {0}
@@ -67,7 +67,6 @@ jobs:
           echo "Downloading artifact 'model' from run ID: $RUN_ID"
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
 
-          # Verifikasi bahwa direktori tidak kosong
           if [ ! -d "./downloaded_model" ] || [ -z "$(ls -A ./downloaded_model)" ]; then
             echo "❌ Artifact download failed or the directory is empty."
             exit 1

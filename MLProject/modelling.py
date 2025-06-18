@@ -36,6 +36,17 @@ model.compile(optimizer='adam',
 
 # Jalankan training dalam MLflow run
 with mlflow.start_run() as run:
+    # --- PERUBAHAN UTAMA DIMULAI DI SINI ---
+    # Dapatkan run_id dari run yang sedang aktif
+    run_id = run.info.run_id
+    
+    # Simpan run_id ke file teks di direktori saat ini
+    with open("run_id.txt", "w") as f:
+        f.write(run_id)
+    
+    print(f"Successfully saved run_id: {run_id} to run_id.txt")
+    # --- AKHIR DARI PERUBAHAN UTAMA ---
+
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=args.epochs)
 
     # Simpan model lokal, lalu log manual
@@ -43,4 +54,4 @@ with mlflow.start_run() as run:
     mlflow.tensorflow.save_model(model, model_dir)
     mlflow.log_artifacts(model_dir, artifact_path="model")
 
-    print("MLflow run ID:", run.info.run_id)
+    print(f"Model artifacts logged for run ID: {run_id}")
