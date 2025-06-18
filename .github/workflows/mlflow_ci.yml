@@ -17,88 +17,53 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - name: 📥 Run actions/checkout@v3
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Install Miniconda
-        uses: conda-incubator/setup-miniconda@v2
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
         with:
-          auto-activate-base: true
           python-version: 3.11
 
-      - name: ✅ Check Env
-        shell: bash -l {0}
-        run: |
-          echo "Checking environment..."
-          conda --version
-          which python
-          python --version
-
-      - name: 📦 Install dependencies (global tools)
-        shell: bash -l {0}
+      - name: 📦 Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install mlflow dagshub
+          pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
 
-      - name: 🚀 Run mlflow project
-        shell: bash -l {0}
+      - name: 🚀 Train and log model
         working-directory: MLProject
         run: |
-          mlflow run . --env-manager=conda -P epochs=5
+          mlflow run . --env-manager=local -P epochs=5
 
-      - name: 📡 Get latest MLflow run_id
-        shell: bash -l {0}
+      - name: 📡 Get latest run ID
         id: get_run_id
         run: |
           RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "🆔 Latest Run ID: $RUN_ID"
+          echo "🔍 Run ID: $RUN_ID"
 
-      - name: 🧪 Install Python dependencies for model inference
-        shell: bash -l {0}
-        run: |
-          pip install tensorflow scikit-learn numpy
-
-      - name: Install rclone & write config
-        shell: bash
-        run: |
-          sudo apt-get update && sudo apt-get install -y rclone
-          mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" | base64 -d > ~/.config/rclone/rclone.conf
-
-      - name: Upload model to GDrive
-        shell: bash
-        run: |
-          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_${{ github.run_id }} --config ~/.config/rclone/rclone.conf
-
-      - name: 🐳 Build Docker Model from MLflow Artifact
-        shell: bash -l {0}
+      - name: 📦 Download model artifact from MLflow run
         run: |
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+
+      - name: 🐳 Build Docker Image from Downloaded Model
+        run: |
           mlflow models build-docker -m ./downloaded_model -n macamtema/smsml_tema
 
       - name: 🔐 Log in to Docker Hub
         run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
 
-      - name: 🏷️ Tag Docker Image
-        run: |
-          docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
-
       - name: 📤 Push Docker Image to Docker Hub
         run: |
+          docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
           docker push macamtema/smsml_tema:latest
 
-      - name: 🚪 Post Log in to Docker Hub
-        if: always()
-        run: docker logout
+      - name: 🔄 Install rclone for Google Drive
+        run: |
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
 
-      - name: 🧼 Post Set up Python 3.12.7
-        if: always()
-        run: echo "Finished Python setup"
-
-      - name: 🧽 Post Run actions/checkout@v3
-        if: always()
-        run: echo "Repository checkout done"
-
-      - name: ✅ Complete job
-        run: echo "🎉 MLflow CI pipeline complete!"
+      - name: ☁️ Upload model to Google Drive
+        run: |
+          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID --create-dirs
