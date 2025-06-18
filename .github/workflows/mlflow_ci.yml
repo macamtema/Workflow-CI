@@ -42,7 +42,6 @@ jobs:
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
-      # --- KEMBALI MENGUNDUH ARTEFAK UNTUK DOCKERFILE MANUAL ---
       - name: 📥 Download model artifact for Docker build
         shell: bash -l {0}
         run: |
@@ -51,11 +50,15 @@ jobs:
           echo "✅ Artifacts downloaded. Contents:"
           ls -R ./downloaded_model
 
-      # --- PERUBAHAN UTAMA: GUNAKAN DOCKERFILE MANUAL ---
+      # =================================================================
+      # === INI ADALAH LANGKAH KUNCI YANG BENAR ==========================
+      # =================================================================
       - name: 🐳 Build Docker Image using custom Dockerfile
         run: |
           echo "Building Docker image using custom Dockerfile..."
-          # Beri nama image docker Anda, misal: smsml-model
+          # Kita menggunakan perintah 'docker build' standar.
+          # Perintah ini akan membaca file 'Dockerfile' di root direktori.
+          # Image akan diberi nama 'smsml-model'.
           docker build -t smsml-model -f Dockerfile .
 
       - name: 🔐 Log in to Docker Hub
@@ -66,7 +69,6 @@ jobs:
 
       - name: 🚢 Push Docker Image to Docker Hub
         run: |
-          # Tag image dengan username Docker Hub Anda
           docker tag smsml-model:latest ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
 
