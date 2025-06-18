@@ -1,4 +1,4 @@
-name: Workflow CI/CD Model ML (Ultimate Fix)
+name: Workflow CI/CD Model ML (The Real Final Fix)
 on:
   push:
     branches: [main]
@@ -18,7 +18,7 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Conda with environment from file
+      - name: 🐍 Setup Conda with environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           environment-file: MLProject/conda.yaml
@@ -43,20 +43,27 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
       # =================================================================
-      # === PERUBAHAN KUNCI: UNDUH SEMUA ARTEFAK ========================
+      # === PERUBAHAN KUNCI: DUA LANGKAH UNDUH EKSPLISIT =================
       # =================================================================
-      - name: 📥 Download ALL artifacts for Docker build
+      - name: 📥 Download Environment Artifact
         shell: bash -l {0}
         run: |
-          echo "Downloading ALL artifacts from run ID: $RUN_ID into ./artifacts/"
-          # Hapus opsi --artifact-path untuk mengunduh semuanya
-          mlflow artifacts download --run-id $RUN_ID -d ./artifacts
-          echo "✅ All artifacts downloaded. Verifying contents:"
-          ls -R ./artifacts
+          echo "Downloading environment artifact from run ID: $RUN_ID"
+          mlflow artifacts download --run-id $RUN_ID --artifact-path environment -d ./environment_files
+          echo "✅ Environment artifact downloaded. Contents:"
+          ls -R ./environment_files
+
+      - name: 📥 Download Model Artifact
+        shell: bash -l {0}
+        run: |
+          echo "Downloading model artifact from run ID: $RUN_ID"
+          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+          echo "✅ Model artifact downloaded. Contents:"
+          ls -R ./downloaded_model
 
       - name: 🐳 Build Docker Image using custom Dockerfile
         run: |
-          echo "Building Docker image using custom Dockerfile..."
+          echo "Building Docker image with explicitly downloaded files..."
           docker build -t smsml-model -f Dockerfile .
 
       - name: 🔐 Log in to Docker Hub

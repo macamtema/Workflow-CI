@@ -36,24 +36,26 @@ model.compile(optimizer='adam',
 
 # Jalankan training dalam MLflow run
 with mlflow.start_run() as run:
-    # Dapatkan run_id dari run yang sedang aktif
+    # Dapatkan run_id dari run yang sedang aktif dan simpan ke file
     run_id = run.info.run_id
-    
-    # Simpan run_id ke file teks di direktori saat ini
     with open("run_id.txt", "w") as f:
         f.write(run_id)
-    
     print(f"Successfully saved run_id: {run_id} to run_id.txt")
 
     # Lakukan training model
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=args.epochs)
-
-    # --- PERUBAHAN UTAMA DI SINI ---
-    # Gunakan fungsi log_model yang dirancang khusus untuk ini.
-    # Ini akan secara otomatis membuat file 'MLmodel' dan semua metadata yang diperlukan.
+    
+    # --- PERUBAHAN KUNCI ADA DI SINI ---
+    
+    # 1. Secara EKSPLISIT log file conda.yaml ke dalam folder artefak 'environment'
+    #    Ini untuk "memaksa" file lingkungan tersimpan.
+    print("Explicitly logging conda.yaml to 'environment' artifact path...")
+    mlflow.log_artifact("conda.yaml", artifact_path="environment")
+    
+    # 2. Log model seperti biasa
     print("Logging model using mlflow.tensorflow.log_model...")
     mlflow.tensorflow.log_model(
         model=model,
         artifact_path="model"  # Ini akan menjadi nama folder artefak di DagsHub
     )
-    print("Model successfully logged.")
+    print("Model and environment artifacts successfully logged.")
