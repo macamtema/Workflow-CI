@@ -1,10 +1,10 @@
-name: smsml-tf
+name: MLProject
 
 conda_env: conda.yaml
 
 entry_points:
   main:
     parameters:
+      model_name: { type: str, default: example_model }
       epochs: { type: int, default: 5 }
-    command: >
-      python modelling.py --epochs {epochs}
+    command: "python modelling.py --epochs {epochs}"
