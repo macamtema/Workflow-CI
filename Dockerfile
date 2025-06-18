@@ -1,19 +1,25 @@
-# Base image Miniconda
+# Bagian 1: Base Image
+# Kita mulai dari image miniconda yang sudah memiliki Conda terinstal
 FROM continuumio/miniconda3
 
+# Bagian 2: Buat Lingkungan dari conda.yaml
 WORKDIR /app
 
-# Salin file conda.yaml dari folder unduhan 'environment'
-COPY environment_files/conda.yaml .
+# Salin file conda.yaml dari path yang benar sesuai bukti dari log
+COPY environment_files/environment/conda.yaml .
 
-# Buat lingkungan Conda dari file tersebut
+# Gunakan Conda untuk membuat lingkungan persis seperti saat training
 RUN conda env create -n model-env -f conda.yaml && conda clean -a
 
-# Salin folder model yang telah diunduh
-COPY downloaded_model/ /app/model/
+# Bagian 3: Salin Artefak Model
+# Salin sub-folder model dari path yang benar sesuai bukti dari log
+COPY downloaded_model/model/ /app/model/
 
-# Expose port
+# Bagian 4: Konfigurasi & Eksekusi
+# Expose port yang akan digunakan oleh server
 EXPOSE 8080
 
 # Perintah default untuk menjalankan container
+# 1. Aktifkan lingkungan conda 'model-env' yang baru kita buat
+# 2. Jalankan mlflow models serve untuk menyajikan model
 CMD ["conda", "run", "-n", "model-env", "mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080"]
