@@ -36,5 +36,6 @@ model.compile(optimizer='adam',
 # Mulai run MLflow secara eksplisit (jika autolog tidak cukup)
 with mlflow.start_run() as run:
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=args.epochs)
-    mlflow.tensorflow.log_model(model, artifact_path="model")
+    mlflow.log_model(model, artifact_path="model", input_example=None, signature=None)
     print("MLflow run ID:", run.info.run_id)
+
