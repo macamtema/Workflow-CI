@@ -1,69 +1,92 @@
-name: MLflow CI Pipeline
+name: CI Workflow MLProject
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
-  train-and-deploy:
+  build-and-deploy:
+    name: 🚀 Build and Deploy ML Model
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
-      MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
+      MLFLOW_TRACKING_URI: https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/smsml_tema.mlflow
       MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📦 Checkout repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python
+      - name: 🐍 Set up Python 3.12.7
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: 3.12.7
 
-      - name: 📦 Install Python dependencies
+      - name: ⚙️ Check Env
         run: |
+          echo "Python version: $(python --version)"
           pip install --upgrade pip
-          pip install mlflow dagshub tensorflow matplotlib seaborn scikit-learn
+          pip install mlflow
 
-      - name: 🚀 Train and log model
-        working-directory: MLProject
+      - name: 📦 Install dependencies
         run: |
-          mlflow run . --env-manager=local -P epochs=5
+          pip install -r MLProject/requirements.txt
 
-      - name: 📡 Get latest run ID
+      - name: 🏃 Run MLflow project
+        run: |
+          cd MLProject
+          mlflow run . -P model_name=example_model
+
+      - name: 🆔 Get latest MLflow run_id
         id: get_run_id
         run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
+          RUN_ID=$(mlflow runs list --experiment-id 0 | grep -v ^Run | awk '{print $1}' | head -n 1)
+          if [ -z "$RUN_ID" ]; then
+            echo "❌ Run ID not found!"
+            exit 1
+          fi
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
           echo "🔍 Run ID: $RUN_ID"
 
-      - name: 📦 Download model artifact from MLflow run
+      - name: 📥 Download model artifact from MLflow run (with retries)
         run: |
-          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "🔁 Attempt $i to download artifacts for run $RUN_ID..."
+            mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model && break
+            echo "⚠️ Download failed, retrying in 10s..."
+            sleep 10
+          done
 
-      - name: 🐳 Build Docker Image from Downloaded Model
+          if [ ! -d "./downloaded_model" ]; then
+            echo "❌ Artifact download failed after $MAX_RETRIES attempts."
+            exit 1
+          fi
+
+      - name: ☁️ Upload model to Google Drive via rclone
+        env:
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
         run: |
-          mlflow models build-docker -m ./downloaded_model -n macamtema/smsml_tema
+          zip -r model_${RUN_ID}.zip downloaded_model
+          echo "$RCLONE_CONF" > rclone.conf
+          rclone --config=rclone.conf copy model_${RUN_ID}.zip gdrive:/mlflow-models/
+
+      - name: 🐳 Build Docker Image
+        run: |
+          mlflow models build-docker -m ./downloaded_model -n smsmlmodel
 
       - name: 🔐 Log in to Docker Hub
-        run: echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: 📤 Push Docker Image to Docker Hub
+      - name: 🏷️ Tag Docker Image
         run: |
-          docker tag macamtema/smsml_tema macamtema/smsml_tema:latest
-          docker push macamtema/smsml_tema:latest
+          docker tag smsmlmodel ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
 
-      - name: 🔄 Install rclone for Google Drive
+      - name: 🚢 Push Docker Image
         run: |
-          sudo apt-get install -y rclone
-          mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
 
-      - name: ☁️ Upload model to Google Drive
-        run: |
-          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID --create-dirs
+      - name: 🔓 Post Log out from Docker Hub
+        run: docker logout
