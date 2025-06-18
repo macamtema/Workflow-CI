@@ -1,20 +1,18 @@
 # Bagian 1: Base Image
-# Kita mulai dari image miniconda yang sudah memiliki Conda terinstal
 FROM continuumio/miniconda3
 
 # Bagian 2: Buat Lingkungan dari conda.yaml
 WORKDIR /app
 
-# Salin file conda.yaml dari model yang sudah diunduh ke dalam image
-COPY downloaded_model/conda.yaml .
+# Salin file conda.yaml dari folder artefak yang sudah kita unduh semua
+COPY artifacts/conda.yaml .
 
 # Gunakan Conda untuk membuat lingkungan persis seperti saat training
-# Semua dependensi (tensorflow, mlflow, dll.) akan terinstal di sini
 RUN conda env create -n model-env -f conda.yaml && conda clean -a
 
 # Bagian 3: Salin Artefak Model
-# Salin seluruh folder model ke dalam image
-COPY downloaded_model/ /app/model/
+# Salin sub-folder model dari dalam folder artefak ke dalam image
+COPY artifacts/model/ /app/model/
 
 # Bagian 4: Konfigurasi & Eksekusi
 # Expose port yang akan digunakan oleh server

@@ -1,4 +1,4 @@
-name: Workflow CI/CD Model ML (Final Production)
+name: Workflow CI/CD Model ML (Ultimate Fix)
 on:
   push:
     branches: [main]
@@ -7,7 +7,7 @@ jobs:
   build-and-deploy:
     name: 🚀 Build, Test, and Deploy ML Model
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     env:
       MLFLOW_TRACKING_URI: https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/smsml_tema.mlflow
@@ -42,23 +42,21 @@ jobs:
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
-      - name: 📥 Download model artifact for Docker build
+      # =================================================================
+      # === PERUBAHAN KUNCI: UNDUH SEMUA ARTEFAK ========================
+      # =================================================================
+      - name: 📥 Download ALL artifacts for Docker build
         shell: bash -l {0}
         run: |
-          echo "Downloading artifact 'model' from run ID: $RUN_ID"
-          mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
-          echo "✅ Artifacts downloaded. Contents:"
-          ls -R ./downloaded_model
+          echo "Downloading ALL artifacts from run ID: $RUN_ID into ./artifacts/"
+          # Hapus opsi --artifact-path untuk mengunduh semuanya
+          mlflow artifacts download --run-id $RUN_ID -d ./artifacts
+          echo "✅ All artifacts downloaded. Verifying contents:"
+          ls -R ./artifacts
 
-      # =================================================================
-      # === INI ADALAH LANGKAH KUNCI YANG BENAR ==========================
-      # =================================================================
       - name: 🐳 Build Docker Image using custom Dockerfile
         run: |
           echo "Building Docker image using custom Dockerfile..."
-          # Kita menggunakan perintah 'docker build' standar.
-          # Perintah ini akan membaca file 'Dockerfile' di root direktori.
-          # Image akan diberi nama 'smsml-model'.
           docker build -t smsml-model -f Dockerfile .
 
       - name: 🔐 Log in to Docker Hub
