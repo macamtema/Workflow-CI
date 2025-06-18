@@ -62,14 +62,15 @@ jobs:
       - name: Install rclone & write config
         shell: bash -l {0}
         run: |
+          sudo apt-get update
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" | base64 -d > ~/.config/rclone/rclone.conf
+          echo "${{ secrets.RCLONE_CONF }}" | base64 --decode > ~/.config/rclone/rclone.conf
 
       - name: Upload model to GDrive
         shell: bash -l {0}
         run: |
-          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_${{ github.run_id }}
+          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_${{ github.run_id }} --config ~/.config/rclone/rclone.conf
 
       - name: 🐳 Build Docker Model from MLflow Artifact
         shell: bash -l {0}
