@@ -19,20 +19,21 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Setup Conda with Python 3.10
+      - name: 🐍 Setup Conda with environment
         uses: conda-incubator/setup-miniconda@v2
         with:
-          auto-update-conda: true
-          python-version: 3.10
-          activate-environment: mlflow-env
           environment-file: MLProject/conda.yaml
+          activate-environment: mlflow-env
+          auto-activate-base: false
 
       - name: 🏃 Run MLflow project
+        shell: bash -l {0}
         run: |
           cd MLProject
           mlflow run . -P epochs=5 -P model_name=example_model
 
       - name: 🆔 Get latest MLflow run_id
+        shell: bash -l {0}
         id: get_run_id
         run: |
           RUN_ID=$(mlflow runs list --experiment-id 0 | grep -v ^Run | awk '{print $1}' | head -n 1)
@@ -44,6 +45,7 @@ jobs:
           echo "🔍 Run ID: $RUN_ID"
 
       - name: 📥 Download model artifact from MLflow run
+        shell: bash -l {0}
         run: |
           MAX_RETRIES=5
           for i in $(seq 1 $MAX_RETRIES); do
@@ -59,6 +61,7 @@ jobs:
           fi
 
       - name: ☁️ Upload model to Google Drive via rclone
+        shell: bash -l {0}
         env:
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
         run: |
@@ -67,6 +70,7 @@ jobs:
           rclone --config=rclone.conf copy model_${RUN_ID}.zip gdrive:/mlflow-models/
 
       - name: 🐳 Build Docker Image
+        shell: bash -l {0}
         run: |
           mlflow models build-docker -m ./downloaded_model -n smsmlmodel
 
@@ -74,12 +78,10 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: 🏷️ Tag Docker Image
-        run: |
-          docker tag smsmlmodel ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
+        run: docker tag smsmlmodel ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
 
       - name: 🚢 Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsmlmodel:latest
 
-      - name: 🔓 Post Log out from Docker Hub
+      - name: 🔓 Logout Docker Hub
         run: docker logout
