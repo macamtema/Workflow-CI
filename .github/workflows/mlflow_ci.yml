@@ -20,28 +20,34 @@ jobs:
       - name: 📥 Run actions/checkout@v3
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python 3.12.7
-        uses: actions/setup-python@v5
+      - name: 🐍 Install Miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: 3.12.7
+          auto-activate-base: true
+          python-version: 3.11
 
       - name: ✅ Check Env
+        shell: bash -l {0}
         run: |
           echo "Checking environment..."
+          conda --version
+          which python
           python --version
-          pip --version
 
       - name: 📦 Install dependencies (global tools)
+        shell: bash -l {0}
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install mlflow dagshub
 
       - name: 🚀 Run mlflow project
+        shell: bash -l {0}
         working-directory: MLProject
         run: |
           mlflow run . --env-manager=conda -P epochs=5
 
       - name: 📡 Get latest MLflow run_id
+        shell: bash -l {0}
         id: get_run_id
         run: |
           RUN_ID=$(mlflow runs list --experiment-id 0 | head -n 2 | tail -n 1 | awk '{print $1}')
@@ -49,10 +55,12 @@ jobs:
           echo "🆔 Latest Run ID: $RUN_ID"
 
       - name: 🧪 Install Python dependencies for model inference
+        shell: bash -l {0}
         run: |
           pip install tensorflow scikit-learn numpy
 
       - name: ☁️ Upload model to Google Drive
+        shell: bash -l {0}
         run: |
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
@@ -60,6 +68,7 @@ jobs:
           rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID --create-dirs
 
       - name: 🐳 Build Docker Model from MLflow Artifact
+        shell: bash -l {0}
         run: |
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
           mlflow models build-docker -m ./downloaded_model -n macamtema/smsml_tema
