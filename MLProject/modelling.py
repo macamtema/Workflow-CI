@@ -36,7 +36,6 @@ model.compile(optimizer='adam',
 
 # Jalankan training dalam MLflow run
 with mlflow.start_run() as run:
-    # --- PERUBAHAN UTAMA DIMULAI DI SINI ---
     # Dapatkan run_id dari run yang sedang aktif
     run_id = run.info.run_id
     
@@ -45,13 +44,16 @@ with mlflow.start_run() as run:
         f.write(run_id)
     
     print(f"Successfully saved run_id: {run_id} to run_id.txt")
-    # --- AKHIR DARI PERUBAHAN UTAMA ---
 
+    # Lakukan training model
     model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=args.epochs)
 
-    # Simpan model lokal, lalu log manual
-    model_dir = "saved_model"
-    mlflow.tensorflow.save_model(model, model_dir)
-    mlflow.log_artifacts(model_dir, artifact_path="model")
-
-    print(f"Model artifacts logged for run ID: {run_id}")
+    # --- PERUBAHAN UTAMA DI SINI ---
+    # Gunakan fungsi log_model yang dirancang khusus untuk ini.
+    # Ini akan secara otomatis membuat file 'MLmodel' dan semua metadata yang diperlukan.
+    print("Logging model using mlflow.tensorflow.log_model...")
+    mlflow.tensorflow.log_model(
+        model=model,
+        artifact_path="model"  # Ini akan menjadi nama folder artefak di DagsHub
+    )
+    print("Model successfully logged.")
