@@ -1,7 +1,7 @@
 # File ini untuk referensi atau setup lingkungan berbasis pip.
 # Alur kerja CI utama menggunakan conda.yaml.
 
-mlflow>=2.1.0
+mlflow==2.10.2
 numpy
 scikit-learn
 tensorflow

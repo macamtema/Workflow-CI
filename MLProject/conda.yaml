@@ -9,8 +9,8 @@ channels:
 dependencies:
   - python=3.9
   - pip
-  # KUNCI UTAMA: Tentukan versi MLflow yang modern untuk mendukung --order-by
-  - mlflow>=2.1.0
+  # KUNCI UTAMA: "Kunci" versi MLflow ke versi yang stabil dan kompatibel
+  - mlflow==2.10.2
   - numpy
   - scikit-learn
   - pip:
