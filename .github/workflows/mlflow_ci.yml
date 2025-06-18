@@ -43,13 +43,23 @@ jobs:
         shell: bash -l {0}
         id: get_run_id
         run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 | awk 'NR==2 {print $1}')
+          echo "🔍 Searching for the latest run ID..."
+          # Tambahkan jeda 5 detik untuk memberi waktu server DagsHub mengindeks run yang baru selesai.
+          sleep 5
+
+          # Ambil RUN_ID dengan mengurutkan berdasarkan waktu mulai (paling baru dulu).
+          # Perintah ini jauh lebih andal daripada mengandalkan urutan default.
+          RUN_ID=$(mlflow runs list --experiment-id 0 --order-by "start_time DESC" | awk 'NR==2 {print $1}')
+
           if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Run ID not found!"
+            echo "❌ Run ID not found after sorting by start time!"
+            echo "--- Full list of runs for debugging ---"
+            mlflow runs list --experiment-id 0 --order-by "start_time DESC"
             exit 1
           fi
+
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "✅ Run ID: $RUN_ID"
+          echo "✅ Latest Run ID found: $RUN_ID"
 
       - name: 📥 Download model artifact from MLflow run
         shell: bash -l {0}
