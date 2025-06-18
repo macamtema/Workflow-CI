@@ -1,4 +1,4 @@
-name: Workflow CI/CD Model ML
+name: Workflow CI/CD Model ML (Investigative Run)
 on:
   push:
     branches: [main]
@@ -25,12 +25,9 @@ jobs:
           activate-environment: mlflow-tensorflow-env
           auto-activate-base: false
 
-      - name: 🔬 Verify Conda Environment & MLflow Version
+      - name: 🔬 Verify MLflow Version
         shell: bash -l {0}
         run: |
-          echo "--- Verifying Conda Environment ---"
-          conda info --envs
-          echo "--- Verifying MLflow Version ---"
           which mlflow
           mlflow --version
 
@@ -40,43 +37,63 @@ jobs:
           cd MLProject
           mlflow run . --experiment-id 0 -P epochs=5
 
-      - name: 🆔 Get MLflow run_id from file (Definitive Method)
+      - name: 🆔 Get MLflow run_id from file
         id: get_run_id
         shell: bash -l {0}
         run: |
           RUN_ID_FILE="MLProject/run_id.txt"
-          if [ ! -f "$RUN_ID_FILE" ]; then
-            echo "❌ File run_id.txt not found!"
-            exit 1
-          fi
+          if [ ! -f "$RUN_ID_FILE" ]; then echo "❌ File run_id.txt not found!"; exit 1; fi
           RUN_ID=$(cat $RUN_ID_FILE)
-          if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Failed to read run ID from file or file is empty!"
-            exit 1
-          fi
+          if [[ -z "$RUN_ID" ]]; then echo "❌ Failed to read run ID from file!"; exit 1; fi
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
-      - name: 📥 Download model artifact from MLflow
+      # --- LANGKAH INVESTIGASI A ---
+      - name: 🔬 A: Verify Uploaded Artifacts on DagsHub
+        shell: bash -l {0}
+        run: |
+          echo "--- Listing artifacts on DagsHub for run $RUN_ID ---"
+          mlflow artifacts list --run-id $RUN_ID
+          echo "-------------------------------------------------"
+
+      # --- LANGKAH INVESTIGASI B ---
+      - name: 📥 B: Download Artifacts
         shell: bash -l {0}
         run: |
           echo "Downloading artifact 'model' from run ID: $RUN_ID"
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
 
-          if [ ! -d "./downloaded_model" ] || [ -z "$(ls -A ./downloaded_model)" ]; then
-            echo "❌ Artifact download failed or the directory is empty."
-            exit 1
-          fi
-          echo "✅ Artifacts downloaded successfully."
-          ls -R ./downloaded_model
-
-      - name: 🐳 Build Docker Image from Model
-        # --- PERUBAHAN DI SINI ---
-        # Menambahkan 'shell: bash -l {0}' agar perintah 'mlflow' dikenali.
+      # --- LANGKAH INVESTIGASI C ---
+      - name: 🔬 C: Verify Downloaded Contents Locally
         shell: bash -l {0}
         run: |
+          echo "--- Verifying contents of ./downloaded_model ---"
+          if [ ! -d "./downloaded_model" ]; then
+            echo "❌ CRITICAL: Directory ./downloaded_model was not created."
+            exit 1
+          fi
+          
+          echo "Listing all files in ./downloaded_model:"
+          ls -R ./downloaded_model
+          
+          echo "--- Explicitly searching for MLmodel file ---"
+          find ./downloaded_model -name "MLmodel" -print
+          
+          if [ ! -f "./downloaded_model/MLmodel" ]; then
+            echo "❌ CRITICAL: MLmodel file NOT FOUND in ./downloaded_model after download."
+            exit 1
+          fi
+          
+          echo "✅ SUCCESS: MLmodel file was found locally."
+          echo "---------------------------------------------"
+
+      - name: 🐳 Build Docker Image from Model
+        shell: bash -l {0}
+        run: |
+          echo "Proceeding to build Docker image..."
           mlflow models build-docker -m ./downloaded_model -n smsml-model --enable-mlserver
 
+      # Langkah-langkah selanjutnya tetap sama
       - name: 🔐 Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -87,6 +104,6 @@ jobs:
         run: |
           docker tag smsml-model:latest ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
-
+          
       - name: 🔓 Logout from Docker Hub
         run: docker logout
