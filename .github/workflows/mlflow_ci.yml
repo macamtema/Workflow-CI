@@ -65,7 +65,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF_B64 }}" | base64 --decode > ~/.config/rclone/rclone.conf
+          echo "${{ secrets.RCLONE_CONF }}" | base64 --decode > ~/.config/rclone/rclone.conf
           chmod 600 ~/.config/rclone/rclone.conf  # optional: secure the file
 
       - name: Upload model to GDrive
