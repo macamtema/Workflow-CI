@@ -64,8 +64,10 @@ jobs:
         run: |
           sudo apt-get install -y rclone
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
-          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID --create-dirs
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          rclone copy ./downloaded_model gdrive:/SMSML_MLflow_Model/Run_$RUN_ID
+        env:
+          RUN_ID: ${{ env.RUN_ID }}
 
       - name: 🐳 Build Docker Model from MLflow Artifact
         shell: bash -l {0}
