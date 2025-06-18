@@ -26,23 +26,30 @@ jobs:
           activate-environment: mlflow-env
           auto-activate-base: false
 
+      - name: 🔍 Check MLflow version
+        shell: bash -l {0}
+        run: |
+          which mlflow
+          mlflow --version
+
       - name: 🏃 Run MLflow project
+        id: run_mlflow
         shell: bash -l {0}
         run: |
           cd MLProject
-          mlflow run . -P epochs=5 -P model_name=example_model
+          mlflow run . -P epochs=5 -P model_name=example_model --experiment-id 0
 
       - name: 🆔 Get latest MLflow run_id
         shell: bash -l {0}
         id: get_run_id
         run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 | grep -v ^Run | awk '{print $1}' | head -n 1)
-          if [ -z "$RUN_ID" ]; then
+          RUN_ID=$(mlflow runs list --experiment-id 0 --max-results 1 | awk 'NR==2 {print $1}')
+          if [[ -z "$RUN_ID" ]]; then
             echo "❌ Run ID not found!"
             exit 1
           fi
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
-          echo "🔍 Run ID: $RUN_ID"
+          echo "✅ Run ID: $RUN_ID"
 
       - name: 📥 Download model artifact from MLflow run
         shell: bash -l {0}
