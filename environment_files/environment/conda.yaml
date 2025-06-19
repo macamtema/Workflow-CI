@@ -1,0 +1,20 @@
+# File definisi lingkungan Conda
+# Digunakan oleh MLflow untuk mereplikasi lingkungan training
+
+name: mlflow-tensorflow-env
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.9
+  - pip
+  # "Kunci" versi MLflow yang stabil dan kompatibel
+  - mlflow==2.10.2
+  # TAMBAHKAN INI: Dependensi untuk menjalankan server MLflow
+  - gunicorn
+  - numpy
+  - scikit-learn
+  - pip:
+      # Tensorflow seringkali lebih stabil diinstal via pip
+      - tensorflow
