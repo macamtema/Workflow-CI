@@ -9,8 +9,10 @@ channels:
 dependencies:
   - python=3.9
   - pip
-  # KUNCI UTAMA: "Kunci" versi MLflow ke versi yang stabil dan kompatibel
+  # "Kunci" versi MLflow yang stabil dan kompatibel
   - mlflow==2.10.2
+  # TAMBAHKAN INI: Dependensi untuk menjalankan server MLflow
+  - gunicorn
   - numpy
   - scikit-learn
   - pip:
