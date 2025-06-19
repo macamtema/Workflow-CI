@@ -10,6 +10,6 @@ entry_points:
   main:
     # Mendefinisikan parameter yang bisa diterima dari command line
     parameters:
-      epochs: { type: int, default: 5 }
+      epochs: { type: int, default: 3 }
     # Perintah yang akan dieksekusi saat 'mlflow run' dipanggil
     command: "python modelling.py --epochs {epochs}"
