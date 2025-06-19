@@ -1,15 +1,13 @@
-name: Train, Deploy, and Archive Model CI/CD
-
+name: Workflow CI/CD Model ML (Train, Build, and Save Artifact)
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    name: 🚀 Build, Deploy, and Archive ML Model
+    name: 🚀 Build, Test, and Deploy ML Model
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 360
 
     permissions:
       contents: write
@@ -23,9 +21,6 @@ jobs:
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
-        with:
-          # Kita butuh PAT di sini agar langkah 'create-pull-request' bisa mendorong perubahan
-          token: ${{ secrets.PAT }}
 
       - name: 🐍 Setup Conda with environment
         uses: conda-incubator/setup-miniconda@v3
@@ -38,7 +33,6 @@ jobs:
         shell: bash -l {0}
         run: |
           cd MLProject
-          # Menjalankan dengan 5 epoch untuk menjaga agar tidak terlalu lama
           mlflow run . --experiment-id 0 -P epochs=5 --env-manager=local
 
       - name: 🆔 Get MLflow run_id from file
@@ -52,15 +46,51 @@ jobs:
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
-      - name: 📥 Download Environment Artifact
-        shell: bash -l {0}
-        run: |
-          mlflow artifacts download --run-id $RUN_ID --artifact-path environment -d ./environment_files
-
       - name: 📥 Download Model Artifact
         shell: bash -l {0}
         run: |
+          echo "Downloading model artifact from run ID: $RUN_ID"
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
+          echo "✅ Model artifact downloaded. Contents:"
+          ls -R ./downloaded_model
+
+      # =================================================================
+      # === PERBAIKAN DI SINI: PROSES DIPISAH MENJADI DUA LANGKAH =======
+      # =================================================================
+      - name: Prepare Artifacts for Commit
+        run: |
+          echo "Preparing production_model directory..."
+          # Hapus folder artefak lama untuk memastikan kebersihan
+          rm -rf production_model/
+          # Buat folder baru
+          mkdir -p production_model/
+          # Salin artefak yang baru diunduh ke folder tersebut
+          cp -r downloaded_model/model/* production_model/
+          echo "Artifacts are ready to be committed."
+
+      - name: Create Pull Request with Prepared Artifacts
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT }}
+          commit-message: "ci: Update production model artifact"
+          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          branch: "update/production-model"
+          base: main
+          title: "[Automated] Update Production Model Artifact"
+          body: |
+            A new version of the model has been trained and its artifact is ready.
+            - **Run ID:** `${{ env.RUN_ID }}`
+
+            This PR updates the contents of the `production_model/` directory.
+          # Menambahkan path yang akan di-commit
+          add-paths: |
+            production_model/
+
+      # Langkah-langkah untuk Docker tetap berjalan seperti biasa
+      - name: 📥 Download Environment Artifact (for Docker)
+        shell: bash -l {0}
+        run: |
+          mlflow artifacts download --run-id $RUN_ID --artifact-path environment -d ./environment_files
 
       - name: 🐳 Build Docker Image using custom Dockerfile
         run: |
@@ -77,19 +107,5 @@ jobs:
           docker tag smsml-model:latest ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
 
-      # =====================================================================
-      # === LANGKAH TAMBAHAN: SIMPAN ARTEFAK KE REPOSITORI =================
-      # =====================================================================
-      - name: Create Pull Request with Artifacts
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.PAT }}
-          commit-message: "ci: Archive trained model artifacts for run ${{ env.RUN_ID }}"
-          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          branch: "archive/model-artifacts-${{ env.RUN_ID }}"
-          title: "[Automated] Archive Model Artifacts for Run ${{ env.RUN_ID }}"
-          body: |
-            This PR archives the ML model and environment artifacts from a successful training run.
-            - **Run ID:** `${{ env.RUN_ID }}`
-            - **Contents:** `downloaded_model/` and `environment_files/`
-          delete-branch: true
+      - name: 🔓 Logout from Docker Hub
+        run: docker logout
