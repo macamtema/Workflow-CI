@@ -9,23 +9,19 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # --- 0. Setup Awal & Argumen ---
-# Atur parser argumen untuk menerima jumlah epoch dari luar
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=10, help="Jumlah epoch untuk training")
+parser.add_argument("--epochs", type=int, default=5, help="Jumlah epoch untuk training")
 args = parser.parse_args()
 
-# Nonaktifkan autologging MLflow default untuk kontrol manual
-mlflow.tensorflow.autolog(disable=True)
-
-# Definisikan path ke dataset yang sudah dibagi
-# Diasumsikan folder 'data_split' berada di root proyek 'Workflow-CI'
-DATA_DIR = '../data_split' # Path relatif dari dalam folder MLProject
+# --- 1. Persiapan Data Generator (Versi Lebih Ringan) ---
+print("Mempersiapkan Data Generator...")
+DATA_DIR = '../data_split'
 TRAIN_DIR = os.path.join(DATA_DIR, 'train')
 VAL_DIR = os.path.join(DATA_DIR, 'val')
 
-# --- 1. Persiapan Data Generator ---
-print("Mempersiapkan Data Generator...")
-# Augmentasi untuk data training untuk meningkatkan robustisitas model
+TARGET_SIZE = (96, 96) # Ukuran gambar diperkecil agar training lebih cepat
+BATCH_SIZE = 32
+
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     rotation_range=20,
@@ -33,23 +29,19 @@ train_datagen = ImageDataGenerator(
     horizontal_flip=True,
     fill_mode='nearest'
 )
-
-# Hanya lakukan rescale untuk data validasi dan test
 val_datagen = ImageDataGenerator(rescale=1./255)
 
-# Load data dari direktori menggunakan flow_from_directory
 train_generator = train_datagen.flow_from_directory(
     TRAIN_DIR,
-    target_size=(128, 128),
-    batch_size=32,
+    target_size=TARGET_SIZE,
+    batch_size=BATCH_SIZE,
     class_mode='categorical',
     shuffle=True
 )
-
 val_generator = val_datagen.flow_from_directory(
     VAL_DIR,
-    target_size=(128, 128),
-    batch_size=32,
+    target_size=TARGET_SIZE,
+    batch_size=BATCH_SIZE,
     class_mode='categorical',
     shuffle=False
 )
@@ -57,44 +49,36 @@ val_generator = val_datagen.flow_from_directory(
 # Jalankan proses training dan logging di dalam MLflow run
 with mlflow.start_run() as run:
     run_id = run.info.run_id
-    # Simpan run_id ke file untuk digunakan oleh langkah CI/CD selanjutnya
     with open("run_id.txt", "w") as f:
         f.write(run_id)
     print(f"MLflow Run ID: {run_id}")
-    print(f"Run ID disimpan di run_id.txt")
 
-    # Log parameter training ke MLflow
+    # Log parameter
     mlflow.log_param("epochs", args.epochs)
-    mlflow.log_param("batch_size", 32)
-    mlflow.log_param("target_size", "128x128")
+    mlflow.log_param("batch_size", BATCH_SIZE)
+    mlflow.log_param("target_size", f"{TARGET_SIZE[0]}x{TARGET_SIZE[1]}")
 
-    # --- 2. Definisi Arsitektur Model ---
+    # --- 2. Definisi Arsitektur Model (Versi Lebih Ringan) ---
     print("Membangun model CNN...")
     model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+        Conv2D(16, (3, 3), activation='relu', input_shape=(TARGET_SIZE[0], TARGET_SIZE[1], 3)),
         MaxPooling2D(2, 2),
-        
+        Conv2D(32, (3, 3), activation='relu'),
+        MaxPooling2D(2, 2),
         Conv2D(64, (3, 3), activation='relu'),
         MaxPooling2D(2, 2),
-
-        Conv2D(128, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-
         GlobalAveragePooling2D(),
-        Dense(256, activation='relu'),
+        Dense(128, activation='relu'),
         Dropout(0.5),
-        # Jumlah output neuron disesuaikan dengan jumlah kelas yang terdeteksi oleh generator
         Dense(train_generator.num_classes, activation='softmax')
     ])
-
-    # Compile model
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     model.summary()
 
     # --- 3. Setup Callbacks ---
     callbacks = [
         EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True, verbose=1),
-        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, verbose=1, min_lr=1e-6)
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, verbose=1)
     ]
 
     # --- 4. Training Model ---
@@ -106,15 +90,19 @@ with mlflow.start_run() as run:
         callbacks=callbacks
     )
 
-    # --- 5. Log Metrik dan Model ke MLflow ---
+    # --- 5. Log Metrik dan Artefak ke MLflow (Manual & Eksplisit) ---
     print("Training selesai. Melakukan logging hasil ke MLflow...")
-    # Log metrik performa final ke MLflow
-    final_val_loss = history.history['val_loss'][-1]
+    # Log metrik performa final
     final_val_acc = history.history['val_accuracy'][-1]
-    mlflow.log_metric("final_validation_loss", final_val_loss)
     mlflow.log_metric("final_validation_accuracy", final_val_acc)
 
-    # Log file conda.yaml secara eksplisit untuk memastikan lingkungan bisa direplikasi
+    # Simpan dan log label kelas
+    with open("labels.txt", "w") as f:
+        for label, index in train_generator.class_indices.items():
+            f.write(f"{index}: {label}\n")
+    mlflow.log_artifact("labels.txt")
+
+    # Log file conda.yaml secara eksplisit
     mlflow.log_artifact("conda.yaml", artifact_path="environment")
     
     # Log model yang sudah dilatih
@@ -123,4 +111,4 @@ with mlflow.start_run() as run:
         artifact_path="model"
     )
     
-    print("\nProses selesai. Model dan metrik berhasil di-log ke MLflow.")
+    print("\nProses selesai. Model, metrik, dan artefak berhasil di-log ke MLflow.")

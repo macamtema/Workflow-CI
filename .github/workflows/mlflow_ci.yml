@@ -1,13 +1,19 @@
-name: Workflow CI/CD Model ML (The Real Final Fix)
+name: Train, Deploy, and Archive Model CI/CD
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    name: 🚀 Build, Test, and Deploy ML Model
+    name: 🚀 Build, Deploy, and Archive ML Model
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    permissions:
+      contents: write
+      pull-requests: write
 
     env:
       MLFLOW_TRACKING_URI: https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/smsml_tema.mlflow
@@ -17,6 +23,9 @@ jobs:
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Kita butuh PAT di sini agar langkah 'create-pull-request' bisa mendorong perubahan
+          token: ${{ secrets.PAT }}
 
       - name: 🐍 Setup Conda with environment
         uses: conda-incubator/setup-miniconda@v3
@@ -29,7 +38,8 @@ jobs:
         shell: bash -l {0}
         run: |
           cd MLProject
-          mlflow run . --experiment-id 0 -P epochs=5
+          # Menjalankan dengan 5 epoch untuk menjaga agar tidak terlalu lama
+          mlflow run . --experiment-id 0 -P epochs=5 --env-manager=local
 
       - name: 🆔 Get MLflow run_id from file
         id: get_run_id
@@ -42,28 +52,18 @@ jobs:
           echo "✅ Run ID from file: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
-      # =================================================================
-      # === PERUBAHAN KUNCI: DUA LANGKAH UNDUH EKSPLISIT =================
-      # =================================================================
       - name: 📥 Download Environment Artifact
         shell: bash -l {0}
         run: |
-          echo "Downloading environment artifact from run ID: $RUN_ID"
           mlflow artifacts download --run-id $RUN_ID --artifact-path environment -d ./environment_files
-          echo "✅ Environment artifact downloaded. Contents:"
-          ls -R ./environment_files
 
       - name: 📥 Download Model Artifact
         shell: bash -l {0}
         run: |
-          echo "Downloading model artifact from run ID: $RUN_ID"
           mlflow artifacts download --run-id $RUN_ID --artifact-path model -d ./downloaded_model
-          echo "✅ Model artifact downloaded. Contents:"
-          ls -R ./downloaded_model
 
       - name: 🐳 Build Docker Image using custom Dockerfile
         run: |
-          echo "Building Docker image with explicitly downloaded files..."
           docker build -t smsml-model -f Dockerfile .
 
       - name: 🔐 Log in to Docker Hub
@@ -77,5 +77,19 @@ jobs:
           docker tag smsml-model:latest ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest
 
-      - name: 🔓 Logout from Docker Hub
-        run: docker logout
+      # =====================================================================
+      # === LANGKAH TAMBAHAN: SIMPAN ARTEFAK KE REPOSITORI =================
+      # =====================================================================
+      - name: Create Pull Request with Artifacts
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT }}
+          commit-message: "ci: Archive trained model artifacts for run ${{ env.RUN_ID }}"
+          author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          branch: "archive/model-artifacts-${{ env.RUN_ID }}"
+          title: "[Automated] Archive Model Artifacts for Run ${{ env.RUN_ID }}"
+          body: |
+            This PR archives the ML model and environment artifacts from a successful training run.
+            - **Run ID:** `${{ env.RUN_ID }}`
+            - **Contents:** `downloaded_model/` and `environment_files/`
+          delete-branch: true
