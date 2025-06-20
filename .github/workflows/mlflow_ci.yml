@@ -29,7 +29,7 @@ jobs:
         run: |
           echo "--- Installing Python packages ---"
           python -m pip install --upgrade pip
-          pip install tensorflow numpy scikit-learn mlflow==2.10.2
+          pip install tensorflow numpy scikit-learn mlflow==2.10.2 dagshub
 
       - name: 4. Check Environment
         run: |
