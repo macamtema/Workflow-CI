@@ -20,7 +20,7 @@ mlflow.tensorflow.autolog()
 
 # --- 2. Setup Argumen dan Path Data ---
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=5, help="Jumlah epoch training")
+parser.add_argument("--epochs", type=int, default=2, help="Jumlah epoch training")
 args = parser.parse_args()
 
 DATA_DIR = "../data_split"

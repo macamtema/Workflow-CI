@@ -29,7 +29,7 @@ jobs:
         run: |
           echo "--- Installing Python packages ---"
           python -m pip install --upgrade pip
-          pip install tensorflow numpy scikit-learn mlflow==2.10.2 dagshub
+          pip install tensorflow numpy scikit-learn mlflow==2.22.1 dagshub
 
       - name: 4. Check Environment
         run: |
@@ -47,7 +47,7 @@ jobs:
           TF_CPP_MIN_LOG_LEVEL: "2" # Menyembunyikan warning TensorFlow
         run: |
           cd MLProject
-          python modelling.py --epochs 5
+          python modelling.py --epochs 2
 
       - name: 6. Get Trained Model's Run ID
         id: get_run_id
