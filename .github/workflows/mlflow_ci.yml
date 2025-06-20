@@ -47,7 +47,7 @@ jobs:
           TF_CPP_MIN_LOG_LEVEL: "2" # Menyembunyikan warning TensorFlow
         run: |
           cd MLProject
-          python modelling.py --epochs 10
+          python modelling.py --epochs 5
 
       - name: 6. Get Trained Model's Run ID
         id: get_run_id

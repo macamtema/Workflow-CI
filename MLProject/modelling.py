@@ -8,21 +8,28 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import numpy as np
 import mlflow
 import mlflow.tensorflow
+import dagshub
 
-# --- 1. Hapus Inisialisasi DagsHub ---
-# 'import dagshub' dan 'dagshub.init()' dihapus.
-# Otentikasi sekarang sepenuhnya diatur oleh environment variables di file workflow.
+# --- 1. Inisialisasi DagsHub & MLflow ---
+# Otentikasi diatur oleh environment variables di GitHub Actions
+print("Initializing DagsHub and MLflow...")
+dagshub.init(repo_owner="macamtema", repo_name="smsml_tema", mlflow=True)
 
-# Aktifkan autolog MLflow
+# Aktifkan autologging untuk mencatat semuanya secara otomatis
 mlflow.tensorflow.autolog()
 print("MLflow Autologging Enabled.")
 
 # --- 2. Setup Argumen dan Path Data ---
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=10, help="Jumlah epoch training")
+parser.add_argument("--epochs", type=int, default=5, help="Jumlah epoch training")
 args = parser.parse_args()
 
-DATA_DIR = "data_split"
+# =================================================================
+# === PERUBAHAN UTAMA DI SINI =====================================
+# =================================================================
+# Path ke data sekarang menunjuk satu level ke atas (../) karena
+# skrip ini dijalankan dari dalam folder MLProject
+DATA_DIR = "../data_split"
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 VAL_DIR = os.path.join(DATA_DIR, "val")
 print(f"Loading data from: {DATA_DIR}")
@@ -40,6 +47,7 @@ train_generator = train_datagen.flow_from_directory(
     TRAIN_DIR, target_size=(128, 128), batch_size=32, class_mode='categorical', shuffle=True)
 val_generator = val_datagen.flow_from_directory(
     VAL_DIR, target_size=(128, 128), batch_size=32, class_mode='categorical', shuffle=False)
+print(f"Found {train_generator.num_classes} classes.")
 
 # --- 4. Bangun Arsitektur Model CNN ---
 print("Building CNN model...")
@@ -68,13 +76,13 @@ callbacks = [
 print(f"\nStarting training for {args.epochs} epochs...")
 
 with mlflow.start_run() as run:
-    # Logika krusial untuk CI/CD tetap ada: simpan run_id
+    # Logika krusial untuk CI/CD: simpan run_id ke file agar bisa digunakan langkah selanjutnya
     run_id = run.info.run_id
     with open("run_id.txt", "w") as f:
         f.write(run_id)
     print(f"MLflow Run ID: {run_id} (disimpan ke run_id.txt)")
 
-    # Mulai training.
+    # Mulai training. Autologger akan bekerja di background.
     model.fit(
         train_generator,
         epochs=args.epochs,
