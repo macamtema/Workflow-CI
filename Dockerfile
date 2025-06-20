@@ -1,26 +1,26 @@
 # Bagian 1: Base Image
-FROM continuumio/miniconda3
+# Gunakan base image Python yang sesuai dengan versi di workflow Anda (3.12)
+FROM python:3.12-slim
 
-# Bagian 2: Buat Lingkungan dari conda.yaml
+# Bagian 2: Setup Lingkungan
 WORKDIR /app
 
-# Salin file conda.yaml dari folder unduhan 'environment'
-COPY environment_files/environment/conda.yaml .
+# Bagian 3: Instalasi Dependensi
+# Salin file requirements.txt dari artefak yang diunduh
+# Perintah COPY ini akan dijalankan saat 'docker build' dieksekusi
+COPY artifacts_temp/requirements.txt .
 
-# Gunakan Conda untuk membuat lingkungan persis seperti saat training
-RUN conda env create -n model-env -f conda.yaml && conda clean -a
+# Gunakan pip untuk menginstal semua dependensi dari file tersebut
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Bagian 3: Salin Artefak Model
-# Salin sub-folder model dari path yang benar
-COPY downloaded_model/model/ /app/model/
+# Bagian 4: Salin Artefak Model
+# Salin sub-folder model dari dalam folder artefak ke dalam image
+COPY artifacts_temp/model/ /app/model/
 
-# Bagian 4: Konfigurasi & Eksekusi
+# Bagian 5: Konfigurasi & Eksekusi
 # Expose port yang akan digunakan oleh server
 EXPOSE 8080
 
-# =====================================================================
-# === PERUBAHAN KUNCI DI SINI =========================================
-# =====================================================================
 # Perintah default untuk menjalankan container
-# Tambahkan flag '--env-manager local' untuk memberitahu MLflow agar tidak membuat virtual env baru
-CMD ["conda", "run", "-n", "model-env", "mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080", "--env-manager", "local"]
+# Menggunakan 'mlflow models serve' dengan environment manager lokal
+CMD ["mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080", "--env-manager", "local"]

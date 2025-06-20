@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
-    # Izin yang diperlukan untuk membuat Pull Request
     permissions:
       contents: write
       pull-requests: write
@@ -39,12 +38,11 @@ jobs:
 
       - name: 5. Run Training Script
         shell: bash
-        # Memberikan kredensial langsung ke langkah ini menggunakan env var standar MLflow
         env:
           MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
           MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
-          TF_CPP_MIN_LOG_LEVEL: "2" # Menyembunyikan warning TensorFlow
+          TF_CPP_MIN_LOG_LEVEL: "2"
         run: |
           cd MLProject
           python modelling.py --epochs 2
@@ -53,7 +51,6 @@ jobs:
         id: get_run_id
         shell: bash
         run: |
-          # Membaca run_id dari file yang dibuat oleh skrip modelling.py
           RUN_ID_FILE="MLProject/run_id.txt"
           if [ ! -f "$RUN_ID_FILE" ]; then echo "❌ File run_id.txt not found!"; exit 1; fi
           RUN_ID=$(cat $RUN_ID_FILE)
@@ -62,7 +59,6 @@ jobs:
 
       - name: 7. Download All Artifacts from MLflow
         shell: bash
-        # Memberikan kredensial ke perintah mlflow secara langsung
         env:
           MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
           MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
@@ -72,9 +68,8 @@ jobs:
           echo "✅ Artifacts downloaded. Contents:"
           ls -R ./artifacts_temp
 
-      - name: 8a. Prepare Artifact for Commit to Repository
+      - name: 8a. Prepare Artifact for Commit
         run: |
-          echo "Preparing artifact folder for commit..."
           rm -rf MLProject/model_artifact/
           mkdir -p MLProject/model_artifact/
           cp -r artifacts_temp/model/* MLProject/model_artifact/
@@ -93,16 +88,14 @@ jobs:
             - **MLflow Run ID:** `${{ env.RUN_ID }}`
           add-paths: MLProject/model_artifact/
 
+      # =================================================================
+      # === PERBAIKAN KUNCI: LANGKAH BUILD DOCKER DISederhanakan ========
+      # =================================================================
       - name: 9. Build Docker Image
         run: |
-          echo "Preparing files for Docker build..."
-          mkdir -p environment_files/environment
-          mkdir -p downloaded_model
-          # Menggunakan conda.yaml dari artefak yang diunduh (hasil autolog)
-          cp artifacts_temp/conda.yaml environment_files/environment/conda.yaml
-          cp -r artifacts_temp/model/* downloaded_model/model/
-
-          echo "Building Docker image..."
+          echo "Building Docker image using custom Dockerfile..."
+          # Perintah ini sekarang akan berjalan dengan sukses karena Dockerfile
+          # akan mencari 'requirements.txt' yang benar-benar ada.
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/smsml-model:latest -f Dockerfile .
 
       - name: 10. Log in to Docker Hub
