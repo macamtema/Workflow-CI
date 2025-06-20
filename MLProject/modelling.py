@@ -8,27 +8,21 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import numpy as np
 import mlflow
 import mlflow.tensorflow
-import dagshub
 
-# --- 1. Inisialisasi DagsHub & MLflow ---
-# Otentikasi diatur oleh environment variables di GitHub Actions
-print("Initializing DagsHub and MLflow...")
-dagshub.init(repo_owner="macamtema", repo_name="smsml_tema", mlflow=True)
+# --- 1. Inisialisasi DagsHub dihapus ---
+# Otentikasi sekarang 100% diatur oleh environment variables di file workflow.
+# Tidak ada lagi 'import dagshub' atau 'dagshub.init()'.
 
-# Aktifkan autologging untuk mencatat semuanya secara otomatis
+print("MLflow autologging enabled. Relying on environment variables for tracking.")
+# Aktifkan autologging. MLflow akan otomatis mencari variabel lingkungan
+# seperti MLFLOW_TRACKING_URI untuk mengetahui ke mana harus me-log.
 mlflow.tensorflow.autolog()
-print("MLflow Autologging Enabled.")
 
 # --- 2. Setup Argumen dan Path Data ---
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=5, help="Jumlah epoch training")
 args = parser.parse_args()
 
-# =================================================================
-# === PERUBAHAN UTAMA DI SINI =====================================
-# =================================================================
-# Path ke data sekarang menunjuk satu level ke atas (../) karena
-# skrip ini dijalankan dari dalam folder MLProject
 DATA_DIR = "../data_split"
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 VAL_DIR = os.path.join(DATA_DIR, "val")
@@ -47,7 +41,6 @@ train_generator = train_datagen.flow_from_directory(
     TRAIN_DIR, target_size=(128, 128), batch_size=32, class_mode='categorical', shuffle=True)
 val_generator = val_datagen.flow_from_directory(
     VAL_DIR, target_size=(128, 128), batch_size=32, class_mode='categorical', shuffle=False)
-print(f"Found {train_generator.num_classes} classes.")
 
 # --- 4. Bangun Arsitektur Model CNN ---
 print("Building CNN model...")
@@ -67,7 +60,7 @@ model = Sequential([
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 model.summary()
 
-# --- 5. Training Model dengan Tracking Otomatis ---
+# --- 5. Training Model ---
 callbacks = [
     EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
     ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2)
@@ -76,11 +69,11 @@ callbacks = [
 print(f"\nStarting training for {args.epochs} epochs...")
 
 with mlflow.start_run() as run:
-    # Logika krusial untuk CI/CD: simpan run_id ke file agar bisa digunakan langkah selanjutnya
+    # Simpan run_id ke file. Ini krusial untuk langkah CI/CD selanjutnya.
     run_id = run.info.run_id
     with open("run_id.txt", "w") as f:
         f.write(run_id)
-    print(f"MLflow Run ID: {run_id} (disimpan ke run_id.txt)")
+    print(f"MLflow Run ID: {run_id} (saved to run_id.txt)")
 
     # Mulai training. Autologger akan bekerja di background.
     model.fit(
