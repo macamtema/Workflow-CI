@@ -1,4 +1,4 @@
-name: Simplified Training and Deployment Pipeline
+name: Full Training and Deployment Pipeline
 
 on:
   push:
@@ -15,21 +15,15 @@ jobs:
       contents: write
       pull-requests: write
 
-    env:
-      DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-      DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
-      MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
-
     steps:
-      - name: 1. Set up job & Checkout Repository
+      - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
       - name: 2. Set up Python and Conda Environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: "3.12"
-          # Pastikan parameter ini adalah 'env-name'
+          # Menggunakan 'env-name' yang benar
           env-name: training-env
           activate-environment: true
           auto-activate-base: false
@@ -41,28 +35,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install tensorflow numpy scikit-learn mlflow==2.10.2 dagshub
 
-      - name: 4. Check Env
+      - name: 4. Check Environment
         shell: bash -l {0}
         run: |
           echo "--- Environment Check ---"
-          which python
           python --version
           conda info --envs
           pip list
 
       - name: 5. Run Training Script
         shell: bash -l {0}
+        # Memberikan kredensial langsung ke langkah ini untuk menjamin otentikasi
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+          # Variabel untuk membuat log TensorFlow lebih bersih
+          TF_CPP_MIN_LOG_LEVEL: "2"
         run: |
           cd MLProject
           python modelling.py --epochs 10
 
-      - name: 6. Get latest MLflow run_id
+      - name: 6. Get Trained Model's Run ID
         id: get_run_id
         shell: bash -l {0}
         run: |
-          echo "Fetching latest run_id from DagsHub..."
-          RUN_ID=$(mlflow runs list --experiment-id 0 | awk 'NR==2 {print $1}')
-          if [[ -z "$RUN_ID" ]]; then echo "❌ Failed to get Run ID!"; exit 1; fi
+          # Membaca run_id dari file yang dibuat oleh skrip modelling.py
+          RUN_ID_FILE="MLProject/run_id.txt"
+          if [ ! -f "$RUN_ID_FILE" ]; then echo "❌ File run_id.txt not found!"; exit 1; fi
+          RUN_ID=$(cat $RUN_ID_FILE)
           echo "✅ Trained Model Run ID: $RUN_ID"
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
@@ -99,6 +99,7 @@ jobs:
           echo "Preparing files for Docker build..."
           mkdir -p environment_files/environment
           mkdir -p downloaded_model
+          # Menggunakan conda.yaml dari artefak yang diunduh (hasil autolog)
           cp artifacts_temp/conda.yaml environment_files/environment/conda.yaml
           cp -r artifacts_temp/model/* downloaded_model/model/
 
