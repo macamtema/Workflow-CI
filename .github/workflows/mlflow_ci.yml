@@ -9,7 +9,7 @@ jobs:
   train-build-deploy:
     name: Train, Commit, Build, and Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 360
 
     # Izin yang diperlukan untuk membuat Pull Request
     permissions:
