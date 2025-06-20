@@ -8,14 +8,12 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 import numpy as np
 import mlflow
 import mlflow.tensorflow
-import dagshub
 
-# --- 1. Inisialisasi DagsHub & MLflow ---
-# Inisialisasi ini akan mengambil kredensial dari environment variables yang disediakan oleh GitHub Actions
-print("Initializing DagsHub and MLflow...")
-dagshub.init(repo_owner="macamtema", repo_name="smsml_tema", mlflow=True)
+# --- 1. Hapus Inisialisasi DagsHub ---
+# 'import dagshub' dan 'dagshub.init()' dihapus.
+# Otentikasi sekarang sepenuhnya diatur oleh environment variables di file workflow.
 
-# Aktifkan autologging untuk mencatat semua parameter, metrik, dan model secara otomatis
+# Aktifkan autolog MLflow
 mlflow.tensorflow.autolog()
 print("MLflow Autologging Enabled.")
 
@@ -24,7 +22,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=10, help="Jumlah epoch training")
 args = parser.parse_args()
 
-# Path ke data, diasumsikan skrip dijalankan dari dalam folder MLProject
 DATA_DIR = "data_split"
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 VAL_DIR = os.path.join(DATA_DIR, "val")
@@ -71,13 +68,13 @@ callbacks = [
 print(f"\nStarting training for {args.epochs} epochs...")
 
 with mlflow.start_run() as run:
-    # Logika krusial untuk pipeline CI/CD: simpan run_id ke file
+    # Logika krusial untuk CI/CD tetap ada: simpan run_id
     run_id = run.info.run_id
     with open("run_id.txt", "w") as f:
         f.write(run_id)
     print(f"MLflow Run ID: {run_id} (disimpan ke run_id.txt)")
 
-    # Mulai training. Autologger akan bekerja di background.
+    # Mulai training.
     model.fit(
         train_generator,
         epochs=args.epochs,

@@ -1,4 +1,4 @@
-name: Full Training and Deployment Pipeline
+name: Full Training, Artifact Commit, and Docker Deployment Pipeline
 
 on:
   push:
@@ -9,8 +9,9 @@ jobs:
   train-build-deploy:
     name: Train, Commit, Build, and Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 45
 
+    # Izin yang diperlukan untuk membuat Pull Request
     permissions:
       contents: write
       pull-requests: write
@@ -19,45 +20,38 @@ jobs:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Set up Python and Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
+      - name: 2. Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          # Menggunakan 'env-name' yang benar
-          env-name: training-env
-          activate-environment: true
-          auto-activate-base: false
 
       - name: 3. Install Dependencies
-        shell: bash -l {0}
         run: |
-          echo "--- Installing Python packages into 'training-env' ---"
+          echo "--- Installing Python packages ---"
           python -m pip install --upgrade pip
-          pip install tensorflow numpy scikit-learn mlflow==2.10.2 dagshub
+          pip install tensorflow numpy scikit-learn mlflow==2.10.2
 
       - name: 4. Check Environment
-        shell: bash -l {0}
         run: |
           echo "--- Environment Check ---"
           python --version
-          conda info --envs
           pip list
 
       - name: 5. Run Training Script
-        shell: bash -l {0}
-        # Memberikan kredensial langsung ke langkah ini untuk menjamin otentikasi
+        shell: bash
+        # Memberikan kredensial langsung ke langkah ini menggunakan env var standar MLflow
         env:
-          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
-          # Variabel untuk membuat log TensorFlow lebih bersih
-          TF_CPP_MIN_LOG_LEVEL: "2"
+          MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+          TF_CPP_MIN_LOG_LEVEL: "2" # Menyembunyikan warning TensorFlow
         run: |
           cd MLProject
           python modelling.py --epochs 10
 
       - name: 6. Get Trained Model's Run ID
         id: get_run_id
-        shell: bash -l {0}
+        shell: bash
         run: |
           # Membaca run_id dari file yang dibuat oleh skrip modelling.py
           RUN_ID_FILE="MLProject/run_id.txt"
@@ -67,20 +61,25 @@ jobs:
           echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
 
       - name: 7. Download All Artifacts from MLflow
-        shell: bash -l {0}
+        shell: bash
+        # Memberikan kredensial ke perintah mlflow secara langsung
+        env:
+          MLFLOW_TRACKING_URI: https://dagshub.com/macamtema/smsml_tema.mlflow
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
           mlflow artifacts download --run-id ${{ env.RUN_ID }} -d ./artifacts_temp
           echo "✅ Artifacts downloaded. Contents:"
           ls -R ./artifacts_temp
 
-      - name: 8a. Prepare Artifact for Commit
+      - name: 8a. Prepare Artifact for Commit to Repository
         run: |
           echo "Preparing artifact folder for commit..."
           rm -rf MLProject/model_artifact/
           mkdir -p MLProject/model_artifact/
           cp -r artifacts_temp/model/* MLProject/model_artifact/
 
-      - name: 8b. Create Pull Request with Artifact
+      - name: 8b. Create Pull Request with Model Artifact
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PAT }}
@@ -90,11 +89,11 @@ jobs:
           base: main
           title: "[Automated] Update Trained Model Artifact"
           body: |
-            A new model has been trained. This PR places the new artifact into the `MLProject/model_artifact` folder.
+            A new version of the model has been trained. This PR places the new artifact into the `MLProject/model_artifact` folder.
             - **MLflow Run ID:** `${{ env.RUN_ID }}`
           add-paths: MLProject/model_artifact/
 
-      - name: 9. Build Docker Model
+      - name: 9. Build Docker Image
         run: |
           echo "Preparing files for Docker build..."
           mkdir -p environment_files/environment
