@@ -78,7 +78,7 @@ Setelah workflow berhasil, Anda akan melihat:
 
 - Sebuah **Pull Request baru** yang dibuat oleh bot, siap untuk Anda review dan merge.
 - Sebuah **image Docker baru** dengan tag `latest` di akun Docker Hub Anda.
-
+_*Contoh Docker Image:* https://hub.docker.com/repository/docker/macamtema/smsml-model/_
 ---
 
 _Proyek ini disusun dan dikonfigurasi oleh Tema Anggara._
