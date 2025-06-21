@@ -38,7 +38,7 @@ Pipeline ini diatur dalam file `.github/workflows/mlflow_ci.yml` dan berjalan se
 graph TD
     A[Push ke branch 'main'] --> B{Workflow Terpicu};
     B --> C[1. Setup Lingkungan Python dan Instalasi Dependensi];
-    C --> D[2. Menjalankan Training Model (`modelling.py`)];
+    C --> D[2. Menjalankan Training Model (modelling.py)];
     D --> E[3. Hasil (Metrik dan Artefak) Tercatat di DagsHub];
     E --> F[4. Mengunduh Artefak dari Run Terbaru];
     F --> G[5. Membuat PR untuk Menyimpan Artefak ke Git];
@@ -47,7 +47,7 @@ graph TD
 ```
 
 1.  **Pemicu**: Workflow akan aktif setiap kali ada `push` ke branch `main`.
-2.  **Setup Lingkungan**: GitHub Actions menyiapkan runner, menginstal Python `3.11`, dan menginstal semua dependensi yang dibutuhkan (`tensorflow`, `mlflow`, dll.) menggunakan `pip`.
+2.  **Setup Lingkungan**: GitHub Actions menyiapkan runner, menginstal Python `3.12`, dan menginstal semua dependensi yang dibutuhkan (`tensorflow`, `mlflow`, dll.) menggunakan `pip`.
 3.  **Training & Logging**: Skrip `modelling.py` dieksekusi. Berkat `mlflow.autolog()`, semua parameter (seperti jumlah epoch), metrik (seperti akurasi dan loss), dan artefak (model yang telah dilatih, `requirements.txt`) secara otomatis dicatat ke DagsHub.
 4.  **Pengambilan Artefak**: Setelah training selesai, workflow mengambil `run_id` dari eksekusi tersebut dan mengunduh semua artefak yang baru saja dibuat ke dalam runner.
 5.  **Membuat Pull Request**: Workflow kemudian menyiapkan folder artefak dan menggunakan action `peter-evans/create-pull-request` untuk secara otomatis membuat PR. PR ini berisi versi terbaru dari artefak model untuk digabungkan ke dalam folder `MLProject/model_artifact/` di repositori.
