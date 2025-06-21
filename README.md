@@ -37,13 +37,13 @@ Pipeline ini diatur dalam file `.github/workflows/mlflow_ci.yml` dan berjalan se
 ```mermaid
 graph TD
     A[Push ke branch 'main'] --> B{Workflow Terpicu};
-    B[Workflow Terpicu] --> C{1. Setup Lingkungan Python dan Instalasi Dependensi};
-    C[1. Setup Lingkungan Python dan Instalasi Dependensi] --> D{2. Menjalankan Training modelling.py};
-    D[2. Menjalankan Training modelling.py] --> E{3. Hasil Metrik dan Artefak Tercatat di DagsHub};
-    E[3. Hasil Metrik dan Artefak Tercatat di DagsHub] --> F{4. Mengunduh Artefak dari Run Terbaru};
-    F[4. Mengunduh Artefak dari Run Terbaru] --> G{5. Membuat PR untuk Menyimpan Artefak ke Git};
-    F[4. Mengunduh Artefak dari Run Terbaru] --> H{6. Membangun Image Docker dari Artefak};
-    H[6. Membangun Image Docker dari Artefak] --> I{7. Mendorong Image ke Docker Hub};
+    B[Workflow Terpicu] --> C{Setup Lingkungan Python dan Instalasi Dependensi};
+    C[Setup Lingkungan Python dan Instalasi Dependensi] --> D{Menjalankan Training modelling.py};
+    D[Menjalankan Training modelling.py] --> E{Hasil Metrik dan Artefak Tercatat di DagsHub};
+    E[Hasil Metrik dan Artefak Tercatat di DagsHub] --> F{Mengunduh Artefak dari Run Terbaru};
+    F[Mengunduh Artefak dari Run Terbaru] --> G{Membuat PR untuk Menyimpan Artefak ke Git};
+    F[Mengunduh Artefak dari Run Terbaru] --> H{Membangun Image Docker dari Artefak};
+    H[Membangun Image Docker dari Artefak] --> I{Mendorong Image ke Docker Hub};
 ```
 
 1.  **Pemicu**: Workflow akan aktif setiap kali ada `push` ke branch `main`.
