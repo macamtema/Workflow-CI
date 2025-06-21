@@ -1,6 +1,5 @@
 # Proyek CI/CD End-to-End untuk Model Klasifikasi Beras
 
-
 ## Ringkasan Proyek
 
 Proyek ini adalah implementasi dari pipeline MLOps (Machine Learning Operations) yang menerapkan prinsip **Continuous Integration/Continuous Deployment (CI/CD)** untuk sebuah model klasifikasi gambar. Tujuannya adalah untuk mengotomatisasi seluruh siklus hidup model, mulai dari training, logging, versioning, hingga pembuatan aset deployment (image Docker) yang siap digunakan.
@@ -9,11 +8,11 @@ Setiap kali ada pembaruan pada kode sumber atau data, pipeline ini akan berjalan
 
 ## Fitur Utama
 
-  - **Otomatisasi Training**: Proses training model dijalankan secara otomatis di lingkungan yang bersih dan terisolasi menggunakan GitHub Actions.
-  - **Pelacakan Eksperimen**: Terintegrasi penuh dengan **MLflow** dan **DagsHub** untuk mencatat semua parameter, metrik, dan artefak dari setiap sesi training secara terpusat.
-  - **Versioning Artefak di Git**: Setelah setiap training yang sukses, artefak model (file `MLmodel`, bobot, dll.) secara otomatis disimpan kembali ke dalam repositori melalui Pull Request (PR) yang dibuat oleh bot. Ini memungkinkan versioning model yang transparan langsung di Git.
-  - **Dockerisasi Otomatis**: Model yang telah dilatih secara otomatis di-package ke dalam sebuah image Docker yang ringan dan efisien menggunakan `Dockerfile` kustom.
-  - **Deployment Otomatis ke Registry**: Image Docker yang telah berhasil dibuat langsung di-push ke **Docker Hub**, membuatnya tersedia untuk ditarik dan dijalankan di lingkungan produksi, staging, atau lokal.
+- **Otomatisasi Training**: Proses training model dijalankan secara otomatis di lingkungan yang bersih dan terisolasi menggunakan GitHub Actions.
+- **Pelacakan Eksperimen**: Terintegrasi penuh dengan **MLflow** dan **DagsHub** untuk mencatat semua parameter, metrik, dan artefak dari setiap sesi training secara terpusat.
+- **Versioning Artefak di Git**: Setelah setiap training yang sukses, artefak model (file `MLmodel`, bobot, dll.) secara otomatis disimpan kembali ke dalam repositori melalui Pull Request (PR) yang dibuat oleh bot. Ini memungkinkan versioning model yang transparan langsung di Git.
+- **Dockerisasi Otomatis**: Model yang telah dilatih secara otomatis di-package ke dalam sebuah image Docker yang ringan dan efisien menggunakan `Dockerfile` kustom.
+- **Deployment Otomatis ke Registry**: Image Docker yang telah berhasil dibuat langsung di-push ke **Docker Hub**, membuatnya tersedia untuk ditarik dan dijalankan di lingkungan produksi, staging, atau lokal.
 
 ## Struktur Proyek
 
@@ -61,13 +60,13 @@ Untuk mereplikasi atau menjalankan alur kerja ini di repositori Anda sendiri, ik
 
 ### 1\. Prasyarat
 
-Pastikan Anda telah mengatur semua *secrets* yang diperlukan di repositori GitHub Anda di bawah `Settings > Secrets and variables > Actions`.
+Pastikan Anda telah mengatur semua _secrets_ yang diperlukan di repositori GitHub Anda di bawah `Settings > Secrets and variables > Actions`.
 
-  - `DAGSHUB_USERNAME`: Username DagsHub Anda.
-  - `DAGSHUB_TOKEN`: Token akses dari DagsHub.
-  - `DOCKERHUB_USERNAME`: Username Docker Hub Anda.
-  - `DOCKERHUB_TOKEN`: Token akses dari Docker Hub.
-  - `PAT`: Personal Access Token GitHub dengan scope `repo` dan `workflow`, digunakan untuk membuat Pull Request secara otomatis.
+- `DAGSHUB_USERNAME`: Username DagsHub Anda.
+- `DAGSHUB_TOKEN`: Token akses dari DagsHub.
+- `DOCKERHUB_USERNAME`: Username Docker Hub Anda.
+- `DOCKERHUB_TOKEN`: Token akses dari Docker Hub.
+- `PAT`: Personal Access Token GitHub dengan scope `repo` dan `workflow`, digunakan untuk membuat Pull Request secara otomatis.
 
 ### 2\. Memicu Workflow
 
@@ -77,9 +76,9 @@ Cukup lakukan `git push` ke branch `main`. Workflow akan berjalan secara otomati
 
 Setelah workflow berhasil, Anda akan melihat:
 
-  - Sebuah **Pull Request baru** yang dibuat oleh bot, siap untuk Anda review dan merge.
-  - Sebuah **image Docker baru** dengan tag `latest` di akun Docker Hub Anda.
+- Sebuah **Pull Request baru** yang dibuat oleh bot, siap untuk Anda review dan merge.
+- Sebuah **image Docker baru** dengan tag `latest` di akun Docker Hub Anda.
 
------
+---
 
-*Proyek ini disusun dan dikonfigurasi oleh Tema Anggara.*
+_Proyek ini disusun dan dikonfigurasi oleh Tema Anggara._
