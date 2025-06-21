@@ -37,7 +37,7 @@ Pipeline ini diatur dalam file `.github/workflows/mlflow_ci.yml` dan berjalan se
 ```mermaid
 graph TD
     A[Push ke branch 'main'] --> B{Workflow Terpicu};
-    B --> C[1. Setup Lingkungan Python & Instalasi Dependensi];
+    B --> C[1. Setup Lingkungan Python dan Instalasi Dependensi];
     C --> D[2. Menjalankan Training Model (`modelling.py`)];
     D --> E[3. Hasil (Metrik & Artefak) Tercatat di DagsHub];
     E --> F[4. Mengunduh Artefak dari Run Terbaru];
